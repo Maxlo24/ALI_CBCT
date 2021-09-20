@@ -196,6 +196,7 @@ def validation(model,cropSize, post_label, post_pred, dice_metric, global_step, 
             )
         dice_metric.reset()
     mean_dice_val = np.mean(dice_vals)
+    
     return mean_dice_val
 
 
@@ -262,4 +263,5 @@ def train(data_model, cropSize, global_step, eval_num, max_iterations, train_loa
                 )
         global_step += 1
         data_model["model"] = model
+
     return global_step, dice_val_best, global_step_best

@@ -37,7 +37,18 @@ def ResampleImage(input,size,spacing,origin,direction,interpolator,VectorImageTy
 
 
 def SetSpacingFromRef(file,refFile,outpath=-1):
+    r"""
+    Set the spacing of the image the same as the reference image 
 
+    Parameters
+    ----------
+    filePath
+     path of the image file 
+    refFile
+     path of the reference image 
+    outpath
+     path to save the new image
+    """
 
     img = itk.imread(file)
 
@@ -55,8 +66,6 @@ def SetSpacingFromRef(file,refFile,outpath=-1):
         pixel_dimension = ref_info[1]
 
         VectorImageType = itk.Image[pixel_type, pixel_dimension]
-
-        # print(VectorImageType)
 
         if True in [seg in os.path.basename(file) for seg in ["seg","Seg"]]:
             InterpolatorType = itk.NearestNeighborInterpolateImageFunction[VectorImageType, itk.D]
@@ -146,6 +155,22 @@ def SetSpacing(filepath,output_spacing=[0.5, 0.5, 0.5],outpath=-1):
 # #####################################
 
 def RemoveLabel(filepath,outpath,labelToRemove = [1,5,6], label_radius = 4):
+    r"""
+    Remove the unwanted labels from a file and make the other one bigger  
+
+    Parameters
+    ----------
+    filePath
+     path of the image file 
+    labelToRemove
+     list of the labels to remove from the image 
+    label_radius
+     radius of the dilatation to apply to the remaining labels
+    outpath
+     path to save the new image
+    """
+
+
     print("Reading:", filepath)
     input_img = sitk.ReadImage(filepath) 
     img = sitk.GetArrayFromImage(input_img)
@@ -172,7 +197,18 @@ def RemoveLabel(filepath,outpath,labelToRemove = [1,5,6], label_radius = 4):
 #  Generate landmark from .fcsv files
 # #####################################
 
-def CorrectCSV(filePath):
+def CorrectCSV(filePath, Rcar = [" ", "-1"], Rlab = ["RGo_LGo", "RCo_LCo", "LCo_RCo", "LGo_RGo"]):
+    r"""
+    Remove all the unwanted parts of a fiducial file ".fcsv" :
+    - the spaces " "
+    - the dash ! "-1"
+    _ the labels in the list
+
+    Parameters
+    ----------
+    filePath
+     path of the .fcsv file 
+    """
     file_data = []
     with open(filePath, mode='r') as fcsv_file:
         csv_reader = csv.reader(fcsv_file)
@@ -185,11 +221,8 @@ def CorrectCSV(filePath):
         for row in file_data:
             keep = True
             if "#" not in row[0]:
-                row[11] = row[11].replace("-1","")
-                row[11] = row[11].replace(" ","")
-
-                if "RGo_LGo" in row[11] or "RCo_LCo" in row[11] or "LCo_RCo" in row[11] or "LGo_RGo" in row[11]:
-                    keep = False
+                for car in Rcar : row[11] = row[11].replace(car,"")
+                if True in [label in row[11] for label in Rlab] : keep = False
 
             if(keep):
                 writer.writerow(row)

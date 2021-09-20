@@ -2,7 +2,9 @@
 import os
 import shutil
 import tempfile
+import datetime
 
+import SimpleITK as sitk
 import matplotlib.pyplot as plt
 import numpy as np
 from tqdm import tqdm
@@ -23,11 +25,12 @@ from monai.transforms import (
     Spacingd,
     RandRotate90d,
     ToTensord,
+    SaveImaged,
 )
 
 from monai.config import print_config
 from monai.metrics import DiceMetric
-from monai.networks.nets import UNETR
+
 
 from monai.data import (
     DataLoader,
@@ -38,9 +41,11 @@ from monai.data import (
 
 import torch
 
-# print_config()
+# #####################################
+#  Transforms
+# #####################################
 
-def createTrainTransform(wanted_spacing = [0.5,0.5,0.5],CropSize = [64,64,64]):
+def createTrainTransform(wanted_spacing = [0.5,0.5,0.5],CropSize = [64,64,64],outdir="Out"):
 
     train_transforms = Compose(
         [
@@ -51,7 +56,7 @@ def createTrainTransform(wanted_spacing = [0.5,0.5,0.5],CropSize = [64,64,64]):
                 pixdim=wanted_spacing,
                 mode=("bilinear", "nearest"),
             ),
-            Orientationd(keys=["image", "label"], axcodes="RAS"),
+            Orientationd(keys=["image", "label"], axcodes="RAI"),
             ScaleIntensityd(
                 keys=["image"],minv = 0.0, maxv = 1.0, factor = None
             ),
@@ -98,7 +103,7 @@ def createTrainTransform(wanted_spacing = [0.5,0.5,0.5],CropSize = [64,64,64]):
     return train_transforms
 
 
-def createValidationTransform(wanted_spacing = [0.5,0.5,0.5]):
+def createValidationTransform(wanted_spacing = [0.5,0.5,0.5],outdir="Out"):
 
     val_transforms = Compose(
         [
@@ -109,7 +114,7 @@ def createValidationTransform(wanted_spacing = [0.5,0.5,0.5]):
                 pixdim=wanted_spacing,
                 mode=("bilinear", "nearest"),
             ),
-            Orientationd(keys=["image", "label"], axcodes="RAS"),
+            Orientationd(keys=["image", "label"], axcodes="RAI"),
             ScaleIntensityd(
                 keys=["image"],minv = 0.0, maxv = 1.0, factor = None
             ),
@@ -120,7 +125,53 @@ def createValidationTransform(wanted_spacing = [0.5,0.5,0.5]):
 
     return val_transforms
 
+def createPredictTransform(wanted_spacing = [0.5,0.5,0.5],outdir="out"):
 
+    pre_transforms = Compose(
+        [
+            LoadImaged(keys="image"),
+            AddChanneld(keys="image"),
+            Spacingd(
+                keys="image",
+                pixdim=wanted_spacing,
+                mode="bilinear",
+            ),
+            Orientationd(keys="image", axcodes="RAI"),
+            ScaleIntensityd(
+                keys=["image"],minv = 0.0, maxv = 1.0, factor = None
+            ),
+            CropForegroundd(keys="image", source_key="image"),
+            ToTensord(keys="image"),
+            SaveImaged(
+                keys="image",
+                meta_keys="image_meta_dict", 
+                output_dir=outdir, output_postfix="Input", 
+                resample=False
+            ),
+        ]
+    )
+
+    return pre_transforms
+
+
+def SavePrediction(data, outpath):
+
+    save_transform = Compose(
+        [
+            SaveImaged(
+                keys="pred",
+                meta_keys="image_meta_dict", 
+                output_dir=outpath, output_postfix="Pred", 
+                resample=False
+            ),
+        ]
+    )
+    
+    save_transform(data)
+
+# #####################################
+#  Training
+# #####################################
 
 def validation(model,cropSize, post_label, post_pred, dice_metric, global_step, epoch_iterator_val):
     model.eval()
@@ -148,7 +199,12 @@ def validation(model,cropSize, post_label, post_pred, dice_metric, global_step, 
     return mean_dice_val
 
 
-def train(model, cropSize, loss_function, optimizer, global_step, eval_num, max_iterations, train_loader, val_loader, epoch_loss_values, metric_values, dice_val_best, global_step_best, root_dir, dice_metric, post_label, post_pred):
+
+
+
+def train(data_model, cropSize, global_step, eval_num, max_iterations, train_loader, val_loader, epoch_loss_values, metric_values, dice_val_best, global_step_best, dice_metric, post_label, post_pred):
+    
+    model = data_model["model"]
     model.train()
     epoch_loss = 0
     step = 0
@@ -159,11 +215,11 @@ def train(model, cropSize, loss_function, optimizer, global_step, eval_num, max_
         step += 1
         x, y = (batch["image"].cuda(), batch["label"].cuda())
         logit_map = model(x)
-        loss = loss_function(logit_map, y)
+        loss = data_model["loss_f"](logit_map, y)
         loss.backward()
         epoch_loss += loss.item()
-        optimizer.step()
-        optimizer.zero_grad()
+        data_model["optimizer"].step()
+        data_model["optimizer"].zero_grad()
         epoch_iterator.set_description(
             "Training (%d / %d Steps) (loss=%2.5f)" % (global_step, max_iterations, loss)
         )
@@ -188,9 +244,11 @@ def train(model, cropSize, loss_function, optimizer, global_step, eval_num, max_
             if dice_val > dice_val_best:
                 dice_val_best = dice_val
                 global_step_best = global_step
+                save_path = os.path.join(data_model["dir"],data_model["name"]+"_"+datetime.datetime.now().strftime("%Y_%d_%m")+"_E_"+str(global_step)+".pth")
                 torch.save(
-                    model.state_dict(), os.path.join(root_dir, "best_metric_model.pth")
+                    model.state_dict(), save_path
                 )
+                data_model["best"] = save_path
                 print(
                     "Model Was Saved ! Current Best Avg. Dice: {} Current Avg. Dice: {}".format(
                         dice_val_best, dice_val
@@ -203,26 +261,5 @@ def train(model, cropSize, loss_function, optimizer, global_step, eval_num, max_
                     )
                 )
         global_step += 1
+        data_model["model"] = model
     return global_step, dice_val_best, global_step_best
-
-def ShowTrainResult(dice_val_best,global_step_best,eval_num,epoch_loss_values,metric_values):
-
-    print(
-    f"train completed, best_metric: {dice_val_best:.4f} "
-    f"at iteration: {global_step_best}"
-    )
-
-    plt.figure("train", (12, 6))
-    plt.subplot(1, 2, 1)
-    plt.title("Iteration Average Loss")
-    x = [eval_num * (i + 1) for i in range(len(epoch_loss_values))]
-    y = epoch_loss_values
-    plt.xlabel("Iteration")
-    plt.plot(x, y)
-    plt.subplot(1, 2, 2)
-    plt.title("Val Mean Dice")
-    x = [eval_num * (i + 1) for i in range(len(metric_values))]
-    y = metric_values
-    plt.xlabel("Iteration")
-    plt.plot(x, y)
-    plt.show()

@@ -28,13 +28,13 @@ def main(args):
             img_obj = {}
             img_obj["img"] = img_fn
             baseName = os.path.basename(img_fn)
-            if True in [seg in baseName for seg in ["seg","Seg"]]:
-                img_obj["out"] = os.path.normpath("/".join([SegOutpath,baseName]))
-                seg_lst.append(img_obj)
-
-            else:
+            if True in [scan in baseName for scan in ["scan","Scan"]]:
                 img_obj["out"] = os.path.normpath("/".join([ScanOutpath,baseName]))
                 scan_lst.append(img_obj)
+
+            else:
+                img_obj["out"] = os.path.normpath("/".join([SegOutpath,baseName]))
+                seg_lst.append(img_obj)
 
         if os.path.isfile(img_fn) and ".fcsv" in img_fn:
             img_obj = {}
@@ -95,6 +95,8 @@ def main(args):
         scan = scan_lst[n]
 
         scan_basename = os.path.basename(scan["img"])
+        # print(scan_basename)
+
         seg = seg_lst[n]
         U_lm = U_fcsv_lst[n]
         L_lm = L_fcsv_lst[n]
@@ -108,16 +110,16 @@ def main(args):
         SetSpacing(scan["img"],args.spacing,scan["out"])
 
         if "u" in args.seperate_landmark:
-            GenSeperateLabels(U_lm["file"],scan["out"],os.path.normpath("/".join([U_lm["out"],"U_LM_" + scan_basename])),args.label_radius,U_labels)
+            GenSeperateLabels(U_lm["file"],scan["out"],os.path.normpath("/".join([U_lm["out"],scan_basename.replace("scan","U_LM" )])),args.label_radius,U_labels)
         
         if "l" in args.seperate_landmark:
-            GenSeperateLabels(L_lm["file"],scan["out"],os.path.normpath("/".join([L_lm["out"],"L_LM_" + scan_basename])),args.label_radius,L_labels)
+            GenSeperateLabels(L_lm["file"],scan["out"],os.path.normpath("/".join([L_lm["out"],scan_basename.replace("scan","L_LM" )])),args.label_radius,L_labels)
         
         if "cb" in args.seperate_landmark:
-            GenSeperateLabels(CB_lm["file"],scan["out"],os.path.normpath("/".join([CB_lm["out"],"CB_LM_" + scan_basename])),args.label_radius,CB_labels)
+            GenSeperateLabels(CB_lm["file"],scan["out"],os.path.normpath("/".join([CB_lm["out"],scan_basename.replace("scan","CB_LM" )])),args.label_radius,CB_labels)
 
         if args.mixed_landmark:
-            GenerateUpLowLabels(U_lm["file"],L_lm["file"],scan["out"],os.path.normpath("/".join([Mixed_LMOutpath,"M_LM_" + scan_basename])),args.label_radius)
+            GenerateUpLowCBLabels(U_lm["file"],L_lm["file"],CB_lm["file"],scan["out"],os.path.normpath("/".join([Mixed_LMOutpath,scan_basename.replace("scan","M_LM" )])),args.label_radius)
         
         # RemoveLabel(seg["img"], seg["out"], args.label_to_remove)
         # # SetSpacing(seg["out"],args.spacing,seg["out"])

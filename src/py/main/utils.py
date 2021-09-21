@@ -39,13 +39,120 @@ from monai.data import (
     decollate_batch,
 )
 
+from sklearn.model_selection import train_test_split
+
 import torch
+import glob
+
+
+
+# #####################################
+#  Setup Training
+# #####################################
+
+def setupTrain(dir_scans,dir_landmarks,test_percentage,dir_model):
+    scan_lst = []
+    label_lst = []
+
+    datalist = []
+
+    scan_normpath = os.path.normpath("/".join([dir_scans, '**', '']))
+    for img_fn in sorted(glob.iglob(scan_normpath, recursive=True)):
+        #  print(img_fn)
+        if os.path.isfile(img_fn) and True in [ext in img_fn for ext in [".nrrd", ".nrrd.gz", ".nii", ".nii.gz", ".gipl", ".gipl.gz"]]:
+            scan_lst.append(img_fn)
+
+    label_normpath = os.path.normpath("/".join([dir_landmarks, '**', '']))
+    for img_fn in sorted(glob.iglob(label_normpath, recursive=True)):
+        #  print(img_fn)
+        if os.path.isfile(img_fn) and True in [ext in img_fn for ext in [".nrrd", ".nrrd.gz", ".nii", ".nii.gz", ".gipl", ".gipl.gz"]]:
+            label_lst.append(img_fn)
+    
+    if len(scan_lst) != len(label_lst):
+        print("ERROR : Not the same number of scan and landmark file")
+        return
+
+
+    for file_id in range(0,len(scan_lst)):
+        data = {"image" : scan_lst[file_id], "label" : label_lst[file_id]}
+        datalist.append(data)
+
+
+    trainingSet, validationSet = train_test_split(datalist, test_size=test_percentage/100, random_state=len(datalist))  
+
+    if not os.path.exists(dir_model):
+        os.makedirs(dir_model)
+
+    directory = os.environ.get("MONAI_DATA_DIRECTORY")
+    root_dir = tempfile.mkdtemp() if directory is None else directory
+
+    print("WORKING IN : ", root_dir)
+
+    return trainingSet, validationSet, root_dir
+
 
 # #####################################
 #  Transforms
 # #####################################
 
-def createTrainTransform(wanted_spacing = [0.5,0.5,0.5],CropSize = [64,64,64],outdir="Out"):
+def createROITrainTransform(wanted_spacing = [2,2,2],CropSize = [64,64,64],outdir="Out"):
+
+    train_transforms = Compose(
+        [
+            LoadImaged(keys=["image", "label"]),
+            AddChanneld(keys=["image", "label"]),
+            Spacingd(
+                keys=["image", "label"],
+                pixdim=wanted_spacing,
+                mode=("bilinear", "nearest"),
+            ),
+            Orientationd(keys=["image", "label"], axcodes="RAI"),
+            ScaleIntensityd(
+                keys=["image"],minv = 0.0, maxv = 1.0, factor = None
+            ),
+            CropForegroundd(keys=["image", "label"], source_key="image"),
+            RandCropByPosNegLabeld(
+                keys=["image", "label"],
+                label_key="label",
+                spatial_size=CropSize,
+                pos=1,
+                neg=1,
+                num_samples=4,
+                image_key="image",
+                image_threshold=0,
+            ),
+            RandFlipd(
+                keys=["image", "label"],
+                spatial_axis=[0],
+                prob=0.10,
+            ),
+            RandFlipd(
+                keys=["image", "label"],
+                spatial_axis=[1],
+                prob=0.10,
+            ),
+            RandFlipd(
+                keys=["image", "label"],
+                spatial_axis=[2],
+                prob=0.10,
+            ),
+            RandRotate90d(
+                keys=["image", "label"],
+                prob=0.10,
+                max_k=3,
+            ),
+            RandShiftIntensityd(
+                keys=["image"],
+                offsets=0.10,
+                prob=0.50,
+            ),
+            ToTensord(keys=["image", "label"]),
+        ]
+    )
+
+    return train_transforms
+
+def createALITrainTransform(wanted_spacing = [0.5,0.5,0.5],CropSize = [64,64,64],outdir="Out"):
 
     train_transforms = Compose(
         [
@@ -103,6 +210,7 @@ def createTrainTransform(wanted_spacing = [0.5,0.5,0.5],CropSize = [64,64,64],ou
     return train_transforms
 
 
+
 def createValidationTransform(wanted_spacing = [0.5,0.5,0.5],outdir="Out"):
 
     val_transforms = Compose(
@@ -158,10 +266,11 @@ def SavePrediction(data, outpath):
 
     save_transform = Compose(
         [
+            # Orientationd(keys="pred", axcodes="RAI"),
             SaveImaged(
                 keys="pred",
                 meta_keys="image_meta_dict", 
-                output_dir=outpath, output_postfix="Pred", 
+                output_dir=outpath, output_postfix="M_Pred", 
                 resample=False
             ),
         ]
@@ -196,13 +305,10 @@ def validation(model,cropSize, post_label, post_pred, dice_metric, global_step, 
             )
         dice_metric.reset()
     mean_dice_val = np.mean(dice_vals)
-    
+
     return mean_dice_val
 
-
-
-
-
+ 
 def train(data_model, cropSize, global_step, eval_num, max_iterations, train_loader, val_loader, epoch_loss_values, metric_values, dice_val_best, global_step_best, dice_metric, post_label, post_pred):
     
     model = data_model["model"]

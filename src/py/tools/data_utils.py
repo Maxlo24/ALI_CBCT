@@ -4,7 +4,7 @@ import numpy as np
 import shutil
 import SimpleITK as sitk
 import csv
-import pandas
+import pandas as pd
 
 from numpy.ma.core import getdata
 
@@ -253,6 +253,15 @@ def GetSphereMaskCoord(h,w,l,center,rad):
 
     return np.array(np.where(mask))
 
+def GetImageInfo(filepath):
+    ref = sitk.ReadImage(filepath)
+    ref_size = np.array(ref.GetSize())
+    ref_spacing = np.array(ref.GetSpacing())
+    ref_origin = np.array(ref.GetOrigin())
+    ref_direction = np.array(ref.GetDirection())
+
+    return ref_size,ref_spacing,ref_origin,ref_direction
+
 def CreateNewImage(size,origin,spacing,direction):
     image = sitk.Image(size.tolist(), sitk.sitkInt16)
     image.SetOrigin(origin.tolist())
@@ -282,11 +291,7 @@ def GenSeperateLabels(filePath,refImg,outpath,rad,label_lst):
 
     print("Generating landmarks image at : ", outpath)
 
-    ref = sitk.ReadImage(refImg)
-    ref_size = np.array(ref.GetSize())
-    ref_origin = np.array(ref.GetOrigin())
-    ref_spacing = np.array(ref.GetSpacing())
-    ref_direction = np.array(ref.GetDirection())
+    ref_size,ref_spacing,ref_origin,ref_direction = GetImageInfo(refImg)
 
     image_3D = CreateNewImage(ref_size,ref_origin,ref_spacing,ref_direction)
 
@@ -308,7 +313,7 @@ def GenSeperateLabels(filePath,refImg,outpath,rad,label_lst):
     writer.SetFileName(outpath)
     writer.Execute(image_3D)
 
-def GenerateUpLowLabels(upfilePath,lowfilePath,refImg,outpath,rad):
+def GenerateUpLowCBLabels(upfilePath,lowfilePath,cbPath,refImg,outpath,rad):
     r"""
     Generate a label image from a fiducial file ".fcsv".
     The generated image will match with the reference image. 
@@ -329,11 +334,7 @@ def GenerateUpLowLabels(upfilePath,lowfilePath,refImg,outpath,rad):
 
     print("Generating landmarks image at : ", outpath)
 
-    ref = sitk.ReadImage(refImg)
-    ref_size = np.array(ref.GetSize())
-    ref_origin = np.array(ref.GetOrigin())
-    ref_spacing = np.array(ref.GetSpacing())
-    ref_direction = np.array(ref.GetDirection())
+    ref_size,ref_spacing,ref_origin,ref_direction = GetImageInfo(refImg)
 
     image_3D = CreateNewImage(ref_size,ref_origin,ref_spacing,ref_direction)
 
@@ -341,6 +342,8 @@ def GenerateUpLowLabels(upfilePath,lowfilePath,refImg,outpath,rad):
 
     ulm_lst = ReadFCSV(upfilePath)
     llm_lst = ReadFCSV(lowfilePath)
+    cblm_lst = ReadFCSV(cbPath)
+
 
 
     # Upper landmarks
@@ -363,10 +366,95 @@ def GenerateUpLowLabels(upfilePath,lowfilePath,refImg,outpath,rad):
         maskCoord=maskCoord.tolist()
 
         for i in range(0,len(maskCoord[0])):
-            image_3D.SetPixel([maskCoord[0][i],maskCoord[1][i],maskCoord[2][i]],2)
+            p_val = image_3D.GetPixel([maskCoord[0][i],maskCoord[1][i],maskCoord[2][i]])
+            if p_val == 0:
+                image_3D.SetPixel([maskCoord[0][i],maskCoord[1][i],maskCoord[2][i]],2)
+            elif p_val == 1:
+                image_3D.SetPixel([maskCoord[0][i],maskCoord[1][i],maskCoord[2][i]],4)
+
+    # CB landmarks
+    for lm in cblm_lst :
+        lm_ph_coord = np.array([float(lm["x"]),float(lm["y"]),float(lm["z"])])
+        lm_ph_coord = lm_ph_coord/ref_spacing+physical_origin
+        lm_coord = lm_ph_coord.astype(int)
+        maskCoord = GetSphereMaskCoord(ref_size[0],ref_size[1],ref_size[2],lm_coord,rad)
+        maskCoord=maskCoord.tolist()
+
+        for i in range(0,len(maskCoord[0])):
+            image_3D.SetPixel([maskCoord[0][i],maskCoord[1][i],maskCoord[2][i]],3)
 
     writer = sitk.ImageFileWriter()
     writer.SetFileName(outpath)
     writer.Execute(image_3D)
 
+def GenerateROIfile(lab_scan,outpath,labels = [1],radius=2):
+    r"""
+    Generate a file with the physical coordonate of the center of the ROI in a ".xlsx" file .
+    It only go through the selected labels and sperate the RAI by the radius value. 
 
+    Parameters
+    ----------
+    lab_scan
+     file with labels
+    outpath
+     path to save the generated .xlsx file
+    labels
+     list of labels to go through
+    radius
+     minimum space between 2 ROI
+     """
+
+    print("Generating ROI file at : ", outpath)
+
+    ref_size,ref_spacing,ref_origin,ref_direction = GetImageInfo(lab_scan)
+    physical_origin = abs(ref_origin/ref_spacing)
+
+    # print("Reading:", filepath)
+    input_img = sitk.ReadImage(lab_scan) 
+    img = sitk.GetArrayFromImage(input_img)
+
+    for lab in labels:
+        img = np.where(img==lab, -1,img)
+
+    mask = img == -1
+        
+    label_pos = np.array(np.where(mask))
+    label_pos = label_pos.tolist()
+
+    ROI_coord = [np.array([label_pos[2][0],label_pos[1][0],label_pos[0][0]])]
+    for i in range(1,len(label_pos[0])):
+        ci = np.array([label_pos[2][i],label_pos[1][i],label_pos[0][i]] , dtype='int')
+        dist_list = np.array([np.linalg.norm(cn-ci) for cn in ROI_coord])
+        if all([dist > radius for dist in dist_list]):
+            ROI_coord.append(ci)
+
+    print(len(ROI_coord), "ROI found")
+
+    real_ROI_point = []
+    for i,coord in enumerate(ROI_coord):
+        point= {"ID" : i}
+        point["coord"] = (coord-physical_origin)*ref_spacing
+        real_ROI_point.append(point)
+
+    #Converting array to dataframe
+    point_data = pd.DataFrame(real_ROI_point)
+
+    writer = pd.ExcelWriter(outpath)
+    point_data.to_excel(writer, sheet_name = 'Point_data',index = False)
+
+    writer.save()
+
+    # image_3D = CreateNewImage(ref_size,ref_origin,ref_spacing,ref_direction)
+
+    # for point in real_ROI_point:
+    #     lm_ph_coord = point["coord"]/ref_spacing+physical_origin
+    #     lm_coord = lm_ph_coord.astype(int)
+    #     maskCoord = GetSphereMaskCoord(ref_size[0],ref_size[1],ref_size[2],lm_coord,5)
+    #     maskCoord=maskCoord.tolist()
+
+    #     for i in range(0,len(maskCoord[0])):
+    #         image_3D.SetPixel([maskCoord[0][i],maskCoord[1][i],maskCoord[2][i]],1)
+
+    # writer = sitk.ImageFileWriter()
+    # writer.SetFileName(os.path.dirname(outpath) + "/test.nii.gz")
+    # writer.Execute(image_3D)

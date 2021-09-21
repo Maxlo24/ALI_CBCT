@@ -3,7 +3,6 @@ from utils import*
 
 import argparse
 
-
 import logging
 import os
 import sys
@@ -14,23 +13,6 @@ import nibabel as nib
 import numpy as np
 import torch
 
-from monai.config import print_config
-from monai.data import Dataset, DataLoader, create_test_image_3d, decollate_batch
-from monai.inferers import sliding_window_inference
-from monai.networks.nets import UNet
-from monai.transforms import (
-    Activationsd,
-    AsDiscreted,
-    Compose,
-    EnsureChannelFirstd,
-    Invertd,
-    LoadImaged,
-    Orientationd,
-    Resized,
-    SaveImaged,
-    ScaleIntensityd,
-    EnsureTyped,
-)
 
 
 def main(args):

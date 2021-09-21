@@ -3,66 +3,28 @@ from utils import *
 
 import argparse
 
-import glob
-from sklearn.model_selection import train_test_split
 import logging
 import sys
-
-
 
 def main(args):
 
     # #####################################
     #  Init_param
     # #####################################
-    label_nbr = 3
-    nbr_workers = 4 
+    label_nbr = 5
+    nbr_workers = 4
 
     spacing = args.spacing
     cropSize = args.crop_size
 
-    scan_lst = []
-    label_lst = []
+    trainingSet, validationSet, root_dir = setupTrain(
+        dir_scans = args.dir_scans,
+        dir_landmarks = args.dir_landmarks,
+        test_percentage = args.test_percentage,
+        dir_model = args.dir_model
+    )
 
-    datalist = []
-
-    # #####################################
-    #  Get data
-    # #####################################
-
-    scan_normpath = os.path.normpath("/".join([args.dir_scans, '**', '']))
-    for img_fn in sorted(glob.iglob(scan_normpath, recursive=True)):
-        #  print(img_fn)
-        if os.path.isfile(img_fn) and True in [ext in img_fn for ext in [".nrrd", ".nrrd.gz", ".nii", ".nii.gz", ".gipl", ".gipl.gz"]]:
-            scan_lst.append(img_fn)
-
-    label_normpath = os.path.normpath("/".join([args.dir_landmarks, '**', '']))
-    for img_fn in sorted(glob.iglob(label_normpath, recursive=True)):
-        #  print(img_fn)
-        if os.path.isfile(img_fn) and True in [ext in img_fn for ext in [".nrrd", ".nrrd.gz", ".nii", ".nii.gz", ".gipl", ".gipl.gz"]]:
-            label_lst.append(img_fn)
-    
-    if len(scan_lst) != len(label_lst):
-        print("ERROR : Not the same number of scan and landmark file")
-        return
-
-
-    for file_id in range(0,len(scan_lst)):
-        data = {"image" : scan_lst[file_id], "label" : label_lst[file_id]}
-        datalist.append(data)
-
-
-    trainingSet, validationSet = train_test_split(datalist, test_size=args.test_percentage/100, random_state=len(datalist))  
-
-    if not os.path.exists(args.dir_model):
-        os.makedirs(args.dir_model)
-
-    directory = os.environ.get("MONAI_DATA_DIRECTORY")
-    root_dir = tempfile.mkdtemp() if directory is None else directory
-
-    print("WORKING IN : ", root_dir)
-
-    train_transforms = createTrainTransform(spacing,cropSize,args.dir_cash)
+    train_transforms = createALITrainTransform(spacing,cropSize,args.dir_cash)
     val_transforms = createValidationTransform(spacing,args.dir_cash)
 
     print(trainingSet)
@@ -155,9 +117,9 @@ def main(args):
     )
     print("Best model at : ", model_data["best"])
 
+    directory = os.environ.get("MONAI_DATA_DIRECTORY")
     if directory is None:
         shutil.rmtree(root_dir)
-
 
 
 # #####################################
@@ -165,7 +127,7 @@ def main(args):
 # #####################################
 
 if __name__ ==  '__main__':
-    parser = argparse.ArgumentParser(description='MD_reader', formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser = argparse.ArgumentParser(description='Training for Automatic Landmarks Identification', formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     
     input_group = parser.add_argument_group('dir')
     input_group.add_argument('--dir_project', type=str, help='Directory with all the project',default='/Users/luciacev-admin/Documents/Projects/ALI_benchmark')
@@ -175,9 +137,7 @@ if __name__ ==  '__main__':
     input_group.add_argument('--dir_cash', type=str, help='Output directory of the training',default=parser.parse_args().dir_data+'/Cash')
     input_group.add_argument('--dir_model', type=str, help='Output directory of the training',default=parser.parse_args().dir_data+'/ALI_models')
 
-
-
-    input_group.add_argument('-sp', '--spacing', nargs="+", type=float, help='Wanted output x spacing', default=[2,2,2])
+    input_group.add_argument('-sp', '--spacing', nargs="+", type=float, help='Wanted output x spacing', default=[0.5,0.5,0.5])
     input_group.add_argument('-cs', '--crop_size', nargs="+", type=float, help='Wanted crop size', default=[64,64,64])
     input_group.add_argument('-mi', '--max_iterations', type=int, help='Number of training epocs', default=25000)
     input_group.add_argument('-tp', '--test_percentage', type=int, help='Percentage of data to keep for validation', default=20)

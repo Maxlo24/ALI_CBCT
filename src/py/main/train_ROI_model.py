@@ -20,8 +20,10 @@ def main(args):
     cropSize = args.crop_size
 
     trainingSet, validationSet, root_dir = setupTrain(
-        dir_scans = args.dir_scans,
-        dir_landmarks = args.dir_landmarks,
+        dirDict = {
+            "image" : args.dir_scans,
+            "landmarks" : args.dir_landmarks,
+        },
         test_percentage = args.test_percentage,
         dir_model = args.dir_model
     )
@@ -49,7 +51,7 @@ def main(args):
     train_loader = DataLoader(
         train_ds, batch_size=5, shuffle=True, num_workers=nbr_workers, pin_memory=True
     )
-
+  
     val_ds = CacheDataset(
         data=validationSet,
         transform=val_transforms, 
@@ -97,6 +99,8 @@ def main(args):
     metric_values = []
     while global_step < max_iterations:
         global_step, dice_val_best, global_step_best = train(
+            inID="image",
+            outID = "landmarks",
             data_model=model_data,
             cropSize=cropSize,
             global_step=global_step,

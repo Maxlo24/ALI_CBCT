@@ -6,7 +6,7 @@ import SimpleITK as sitk
 import csv
 import pandas as pd
 
-from numpy.ma.core import getdata
+from numpy.ma.core import getdata, where
 
 # #####################################
 #  label list
@@ -416,33 +416,47 @@ def GenerateROIfile(lab_scan,outpath,labels = [1],radius=2):
     for lab in labels:
         img = np.where(img==lab, -1,img)
 
-    mask = img == -1
+    img = np.where(img!=-1, 0,img)
+    img = np.where(img==-1, 1,img)
+
+    output = sitk.GetImageFromArray(img)
+    output.SetSpacing(input_img.GetSpacing())
+    output.SetDirection(input_img.GetDirection())
+    output.SetOrigin(input_img.GetOrigin())
+
+    # output = sitk.BinaryDilate(output, [label_radius] * output.GetDimension())
+
+    writer = sitk.ImageFileWriter()
+    writer.SetFileName(outpath)
+    writer.Execute(output)
+
+    # mask = img == -1
         
-    label_pos = np.array(np.where(mask))
-    label_pos = label_pos.tolist()
+    # label_pos = np.array(np.where(mask))
+    # label_pos = label_pos.tolist()
 
-    ROI_coord = [np.array([label_pos[2][0],label_pos[1][0],label_pos[0][0]])]
-    for i in range(1,len(label_pos[0])):
-        ci = np.array([label_pos[2][i],label_pos[1][i],label_pos[0][i]] , dtype='int')
-        dist_list = np.array([np.linalg.norm(cn-ci) for cn in ROI_coord])
-        if all([dist > radius for dist in dist_list]):
-            ROI_coord.append(ci)
+    # ROI_coord = [np.array([label_pos[2][0],label_pos[1][0],label_pos[0][0]])]
+    # for i in range(1,len(label_pos[0])):
+    #     ci = np.array([label_pos[2][i],label_pos[1][i],label_pos[0][i]] , dtype='int')
+    #     dist_list = np.array([np.linalg.norm(cn-ci) for cn in ROI_coord])
+    #     if all([dist > radius for dist in dist_list]):
+    #         ROI_coord.append(ci)
 
-    print(len(ROI_coord), "ROI found")
+    # print(len(ROI_coord), "ROI found")
 
-    real_ROI_point = []
-    for i,coord in enumerate(ROI_coord):
-        point= {"ID" : i}
-        point["coord"] = (coord-physical_origin)*ref_spacing
-        real_ROI_point.append(point)
+    # real_ROI_point = []
+    # for i,coord in enumerate(ROI_coord):
+    #     point= {"ID" : i}
+    #     point["coord"] = (coord-physical_origin)*ref_spacing
+    #     real_ROI_point.append(point)
 
     #Converting array to dataframe
-    point_data = pd.DataFrame(real_ROI_point)
+    # point_data = pd.DataFrame(real_ROI_point)
 
-    writer = pd.ExcelWriter(outpath)
-    point_data.to_excel(writer, sheet_name = 'Point_data',index = False)
+    # writer = pd.ExcelWriter(outpath)
+    # point_data.to_excel(writer, sheet_name = 'Point_data',index = False)
 
-    writer.save()
+    # writer.save()
 
     # image_3D = CreateNewImage(ref_size,ref_origin,ref_spacing,ref_direction)
 

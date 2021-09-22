@@ -11,15 +11,18 @@ def main(args):
     # #####################################
     #  Init_param
     # #####################################
-    label_nbr = 5
-    nbr_workers = 4
+    label_nbr = args.nbr_label
+    nbr_workers = args.nbr_worker
 
     spacing = args.spacing
     cropSize = args.crop_size
 
     trainingSet, validationSet, root_dir = setupTrain(
-        dir_scans = args.dir_scans,
-        dir_landmarks = args.dir_landmarks,
+        dirDict = {
+            "image" : args.dir_scans,
+            "landmarks" : args.dir_landmarks,
+            "label" : args.dir_ROI
+        },
         test_percentage = args.test_percentage,
         dir_model = args.dir_model
     )
@@ -95,6 +98,8 @@ def main(args):
     metric_values = []
     while global_step < max_iterations:
         global_step, dice_val_best, global_step_best = train(
+            inID="image",
+            outID = "landmarks",
             data_model=model_data,
             cropSize=cropSize,
             global_step=global_step,
@@ -134,14 +139,18 @@ if __name__ ==  '__main__':
     input_group.add_argument('--dir_data', type=str, help='Input directory with 3D images', default=parser.parse_args().dir_project+'/data')
     input_group.add_argument('--dir_scans', type=str, help='Input directory with the scans',default=parser.parse_args().dir_data+'/Scans')
     input_group.add_argument('--dir_landmarks', type=str, help='Input directory with the landmarks',default=parser.parse_args().dir_data+'/Landmarks')
+    input_group.add_argument('--dir_ROI', type=str, help='Input directory with the ROI',default=parser.parse_args().dir_data+'/ROI')
+
     input_group.add_argument('--dir_cash', type=str, help='Output directory of the training',default=parser.parse_args().dir_data+'/Cash')
     input_group.add_argument('--dir_model', type=str, help='Output directory of the training',default=parser.parse_args().dir_data+'/ALI_models')
 
     input_group.add_argument('-sp', '--spacing', nargs="+", type=float, help='Wanted output x spacing', default=[0.5,0.5,0.5])
-    input_group.add_argument('-cs', '--crop_size', nargs="+", type=float, help='Wanted crop size', default=[64,64,64])
+    input_group.add_argument('-cs', '--crop_size', nargs="+", type=float, help='Wanted crop size', default=[96,96,96])
     input_group.add_argument('-mi', '--max_iterations', type=int, help='Number of training epocs', default=25000)
     input_group.add_argument('-tp', '--test_percentage', type=int, help='Percentage of data to keep for validation', default=20)
     input_group.add_argument('-mn', '--model_name', type=str, help='Name of the model', default="ALI_model")
+    input_group.add_argument('-nl', '--nbr_label', type=int, help='Number of label', default=19)
+    input_group.add_argument('-nw', '--nbr_worker', type=int, help='Number of worker', default=4)
 
 
 

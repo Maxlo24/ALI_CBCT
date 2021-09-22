@@ -26,6 +26,7 @@ from monai.transforms import (
     RandRotate90d,
     ToTensord,
     SaveImaged,
+    RandCropByLabelClassesd
 )
 
 from monai.config import print_config
@@ -50,31 +51,34 @@ import glob
 #  Setup Training
 # #####################################
 
-def setupTrain(dir_scans,dir_landmarks,test_percentage,dir_model):
+def setupTrain(dirDict,test_percentage,dir_model):
     scan_lst = []
     label_lst = []
 
     datalist = []
 
-    scan_normpath = os.path.normpath("/".join([dir_scans, '**', '']))
-    for img_fn in sorted(glob.iglob(scan_normpath, recursive=True)):
-        #  print(img_fn)
-        if os.path.isfile(img_fn) and True in [ext in img_fn for ext in [".nrrd", ".nrrd.gz", ".nii", ".nii.gz", ".gipl", ".gipl.gz"]]:
-            scan_lst.append(img_fn)
+    listDict = {}
 
-    label_normpath = os.path.normpath("/".join([dir_landmarks, '**', '']))
-    for img_fn in sorted(glob.iglob(label_normpath, recursive=True)):
-        #  print(img_fn)
-        if os.path.isfile(img_fn) and True in [ext in img_fn for ext in [".nrrd", ".nrrd.gz", ".nii", ".nii.gz", ".gipl", ".gipl.gz"]]:
-            label_lst.append(img_fn)
+    for key,dirPath in dirDict.items():
+        listDict[key] = []
+        nbr_of_file = 0
+        scan_normpath = os.path.normpath("/".join([dirPath, '**', '']))
+        for img_fn in sorted(glob.iglob(scan_normpath, recursive=True)):
+            #  print(img_fn)
+            if os.path.isfile(img_fn) and True in [ext in img_fn for ext in [".nrrd", ".nrrd.gz", ".nii", ".nii.gz", ".gipl", ".gipl.gz"]]:
+                listDict[key].append(img_fn)
+                nbr_of_file +=1
+
     
-    if len(scan_lst) != len(label_lst):
-        print("ERROR : Not the same number of scan and landmark file")
-        return
+    # if len(scan_lst) != len(label_lst):
+    #     print("ERROR : Not the same number of file in the different folders")
+    #     return
 
 
-    for file_id in range(0,len(scan_lst)):
-        data = {"image" : scan_lst[file_id], "label" : label_lst[file_id]}
+    for file_id in range(0,nbr_of_file):
+        data = {}
+        for key, value in listDict.items():
+            data[key] = value[file_id]
         datalist.append(data)
 
 
@@ -106,11 +110,11 @@ def createROITrainTransform(wanted_spacing = [2,2,2],CropSize = [64,64,64],outdi
                 pixdim=wanted_spacing,
                 mode=("bilinear", "nearest"),
             ),
-            Orientationd(keys=["image", "label"], axcodes="RAI"),
+            # Orientationd(keys=["image", "label"], axcodes="RAI"),
             ScaleIntensityd(
                 keys=["image"],minv = 0.0, maxv = 1.0, factor = None
             ),
-            CropForegroundd(keys=["image", "label"], source_key="image"),
+            # CropForegroundd(keys=["image", "label"], source_key="image"),
             RandCropByPosNegLabeld(
                 keys=["image", "label"],
                 label_key="label",
@@ -156,45 +160,43 @@ def createALITrainTransform(wanted_spacing = [0.5,0.5,0.5],CropSize = [64,64,64]
 
     train_transforms = Compose(
         [
-            LoadImaged(keys=["image", "label"]),
-            AddChanneld(keys=["image", "label"]),
+            LoadImaged(keys=["image", "landmarks"]),
+            AddChanneld(keys=["image", "landmarks"]),
             Spacingd(
-                keys=["image", "label"],
+                keys=["image", "landmarks", "label"],
                 pixdim=wanted_spacing,
-                mode=("bilinear", "nearest"),
+                mode=("bilinear", "nearest", "nearest"),
             ),
-            Orientationd(keys=["image", "label"], axcodes="RAI"),
+            # Orientationd(keys=["image", "label"], axcodes="RAI"),
             ScaleIntensityd(
                 keys=["image"],minv = 0.0, maxv = 1.0, factor = None
             ),
-            CropForegroundd(keys=["image", "label"], source_key="image"),
-            RandCropByPosNegLabeld(
-                keys=["image", "label"],
+            # CropForegroundd(keys=["image", "label"], source_key="image"),
+            RandCropByLabelClassesd(
+                keys=["image", "landmarks"],
                 label_key="label",
                 spatial_size=CropSize,
-                pos=1,
-                neg=1,
+                ratios=[1],
+                num_classes=2,
                 num_samples=4,
-                image_key="image",
-                image_threshold=0,
             ),
             RandFlipd(
-                keys=["image", "label"],
+                keys=["image", "landmarks"],
                 spatial_axis=[0],
                 prob=0.10,
             ),
             RandFlipd(
-                keys=["image", "label"],
+                keys=["image", "landmarks"],
                 spatial_axis=[1],
                 prob=0.10,
             ),
             RandFlipd(
-                keys=["image", "label"],
+                keys=["image", "landmarks"],
                 spatial_axis=[2],
                 prob=0.10,
             ),
             RandRotate90d(
-                keys=["image", "label"],
+                keys=["image", "landmarks"],
                 prob=0.10,
                 max_k=3,
             ),
@@ -203,7 +205,7 @@ def createALITrainTransform(wanted_spacing = [0.5,0.5,0.5],CropSize = [64,64,64]
                 offsets=0.10,
                 prob=0.50,
             ),
-            ToTensord(keys=["image", "label"]),
+            ToTensord(keys=["image", "landmarks"]),
         ]
     )
 
@@ -244,7 +246,7 @@ def createPredictTransform(wanted_spacing = [0.5,0.5,0.5],outdir="out"):
                 pixdim=wanted_spacing,
                 mode="bilinear",
             ),
-            Orientationd(keys="image", axcodes="RAI"),
+            # Orientationd(keys="image", axcodes="RAI"),
             ScaleIntensityd(
                 keys=["image"],minv = 0.0, maxv = 1.0, factor = None
             ),
@@ -282,12 +284,12 @@ def SavePrediction(data, outpath):
 #  Training
 # #####################################
 
-def validation(model,cropSize, post_label, post_pred, dice_metric, global_step, epoch_iterator_val):
+def validation(inID, outID,model,cropSize, post_label, post_pred, dice_metric, global_step, epoch_iterator_val):
     model.eval()
     dice_vals = list()
     with torch.no_grad():
         for step, batch in enumerate(epoch_iterator_val):
-            val_inputs, val_labels = (batch["image"].cuda(), batch["label"].cuda())
+            val_inputs, val_labels = (batch[inID].cuda(), batch[outID].cuda())
             val_outputs = sliding_window_inference(val_inputs, cropSize, 4, model)
             val_labels_list = decollate_batch(val_labels)
             val_labels_convert = [
@@ -309,7 +311,7 @@ def validation(model,cropSize, post_label, post_pred, dice_metric, global_step, 
     return mean_dice_val
 
  
-def train(data_model, cropSize, global_step, eval_num, max_iterations, train_loader, val_loader, epoch_loss_values, metric_values, dice_val_best, global_step_best, dice_metric, post_label, post_pred):
+def train(inID, outID, data_model, cropSize, global_step, eval_num, max_iterations, train_loader, val_loader, epoch_loss_values, metric_values, dice_val_best, global_step_best, dice_metric, post_label, post_pred):
     
     model = data_model["model"]
     model.train()
@@ -320,7 +322,7 @@ def train(data_model, cropSize, global_step, eval_num, max_iterations, train_loa
     )
     for step, batch in enumerate(epoch_iterator):
         step += 1
-        x, y = (batch["image"].cuda(), batch["label"].cuda())
+        x, y = (batch[inID].cuda(), batch[outID].cuda())
         logit_map = model(x)
         loss = data_model["loss_f"](logit_map, y)
         loss.backward()
@@ -337,6 +339,8 @@ def train(data_model, cropSize, global_step, eval_num, max_iterations, train_loa
                 val_loader, desc="Validate (X / X Steps) (dice=X.X)", dynamic_ncols=True
             )
             dice_val = validation(
+                inID=inID,
+                outID = outID,
                 model=model,
                 cropSize=cropSize,
                 global_step=global_step,

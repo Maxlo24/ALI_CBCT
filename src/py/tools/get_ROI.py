@@ -18,7 +18,7 @@ def main(args):
         #  print(img_fn)
         if os.path.isfile(img_fn) and True in [ext in img_fn for ext in [".nrrd", ".nrrd.gz", ".nii", ".nii.gz", ".gipl", ".gipl.gz"]]:
             baseName = os.path.basename(img_fn)
-            if "M_Pred" in baseName :
+            if "or" in baseName :
                 lab_scan_lst.append(img_fn)
 
     # print(lab_scan_lst)
@@ -33,16 +33,16 @@ def main(args):
 
     for lm_scan in lab_scan_lst:
         baseName = os.path.basename(lm_scan)
-        baseName = baseName.split("scan_")[0]
+        baseName = baseName.split("or")[0]
 
         if "u" in args.select_region:
-            GenerateROIfile(lm_scan,os.path.join(U_ROIOutpath,baseName+"U_ROI_points.xlsx"),[1,4],args.box_dist)
+            GenerateROIfile(lm_scan,os.path.join(U_ROIOutpath,baseName+"U_ROI.nii.gz"),[1,4],args.box_dist)
 
         if "l" in args.select_region:
-            GenerateROIfile(lm_scan,os.path.join(L_ROIOutpath,baseName+"L_ROI_points.xlsx"),[2,4],args.box_dist)
+            GenerateROIfile(lm_scan,os.path.join(L_ROIOutpath,baseName+"L_ROI.nii.gz"),[2,4],args.box_dist)
 
         if "cb" in args.select_region:
-            GenerateROIfile(lm_scan,os.path.join(CB_ROIOutpath,baseName+"CB_ROI_points.xlsx"),[3],args.box_dist)
+            GenerateROIfile(lm_scan,os.path.join(CB_ROIOutpath,baseName+"CB_ROI.nii.gz"),[3],args.box_dist)
     
     # os.path.normpath("/".join([L_ROIOutpath,baseName]))
 

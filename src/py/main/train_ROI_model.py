@@ -7,14 +7,13 @@ import logging
 import sys
 
 
-
 def main(args):
 
     # #####################################
     #  Init_param
     # #####################################
-    label_nbr = 5
-    nbr_workers = 4
+    label_nbr = args.nbr_label
+    nbr_workers = args.nbr_worker
 
     spacing = args.spacing
     cropSize = args.crop_size
@@ -49,7 +48,7 @@ def main(args):
         num_workers=nbr_workers,
     )
     train_loader = DataLoader(
-        train_ds, batch_size=5, shuffle=True, num_workers=nbr_workers, pin_memory=True
+        train_ds, batch_size=args.bartch_size, shuffle=True, num_workers=nbr_workers, pin_memory=True
     )
   
     val_ds = CacheDataset(
@@ -145,8 +144,11 @@ if __name__ ==  '__main__':
     input_group.add_argument('--dir_model', type=str, help='Output directory of the training',default=parser.parse_args().dir_data+'/ROI_models')
 
     input_group.add_argument('-sp', '--spacing', nargs="+", type=float, help='Wanted output x spacing', default=[2,2,2])
-    input_group.add_argument('-cs', '--crop_size', nargs="+", type=float, help='Wanted crop size', default=[64,64,64])
+    input_group.add_argument('-cs', '--crop_size', nargs="+", type=float, help='Wanted crop size', default=[32,32,32])
     input_group.add_argument('-mi', '--max_iterations', type=int, help='Number of training epocs', default=25000)
+    input_group.add_argument('-nl', '--nbr_label', type=int, help='Number of label', default=5)
+    input_group.add_argument('-nw', '--nbr_worker', type=int, help='Number of worker', default=4)
+    input_group.add_argument('-bs', '--bartch_size', type=int, help='bartch size', default=10)
     input_group.add_argument('-tp', '--test_percentage', type=int, help='Percentage of data to keep for validation', default=20)
     input_group.add_argument('-mn', '--model_name', type=str, help='Name of the model', default="ROI_model")
 

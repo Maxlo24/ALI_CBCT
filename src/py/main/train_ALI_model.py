@@ -48,7 +48,7 @@ def main(args):
         num_workers=nbr_workers,
     )
     train_loader = DataLoader(
-        train_ds, batch_size=5, shuffle=True, num_workers=nbr_workers, pin_memory=True
+        train_ds, batch_size=1, shuffle=True, num_workers=nbr_workers, pin_memory=True
     )
 
     val_ds = CacheDataset(
@@ -59,7 +59,7 @@ def main(args):
         num_workers=nbr_workers
     )
     val_loader = DataLoader(
-        val_ds, batch_size=2, shuffle=False, num_workers=nbr_workers, pin_memory=True
+        val_ds, batch_size=1, shuffle=False, num_workers=nbr_workers, pin_memory=True
     )
 
     # #####################################

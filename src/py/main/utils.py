@@ -14,6 +14,7 @@ from monai.inferers import sliding_window_inference
 from monai.transforms import (
     AsDiscrete,
     AddChanneld,
+    AddChannel,
     Compose,
     CropForegroundd,
     LoadImaged,
@@ -22,16 +23,19 @@ from monai.transforms import (
     RandCropByPosNegLabeld,
     RandShiftIntensityd,
     ScaleIntensityd,
+    ScaleIntensity,
     Spacingd,
+    Spacing,
     RandRotate90d,
     ToTensord,
+    ToTensor,
     SaveImaged,
+    SaveImage,
     RandCropByLabelClassesd
 )
 
 from monai.config import print_config
 from monai.metrics import DiceMetric
-
 
 from monai.data import (
     DataLoader,
@@ -45,8 +49,6 @@ from sklearn.model_selection import train_test_split
 import torch
 import glob
 
-
-
 # #####################################
 #  Setup Training
 # #####################################
@@ -54,7 +56,6 @@ import glob
 def setupTrain(dirDict,test_percentage,dir_model):
     scan_lst = []
     label_lst = []
-
     datalist = []
 
     listDict = {}
@@ -74,13 +75,11 @@ def setupTrain(dirDict,test_percentage,dir_model):
     #     print("ERROR : Not the same number of file in the different folders")
     #     return
 
-
     for file_id in range(0,nbr_of_file):
         data = {}
         for key, value in listDict.items():
             data[key] = value[file_id]
         datalist.append(data)
-
 
     trainingSet, validationSet = train_test_split(datalist, test_size=test_percentage/100, random_state=len(datalist))  
 
@@ -94,7 +93,6 @@ def setupTrain(dirDict,test_percentage,dir_model):
 
     return trainingSet, validationSet, root_dir
 
-
 # #####################################
 #  Transforms
 # #####################################
@@ -103,82 +101,27 @@ def createROITrainTransform(wanted_spacing = [2,2,2],CropSize = [64,64,64],outdi
 
     train_transforms = Compose(
         [
-            LoadImaged(keys=["image", "label"]),
-            AddChanneld(keys=["image", "label"]),
+            LoadImaged(keys=["image", "landmarks"]),
+            AddChanneld(keys=["image", "landmarks"]),
             Spacingd(
-                keys=["image", "label"],
+                keys=["image", "landmarks"],
                 pixdim=wanted_spacing,
                 mode=("bilinear", "nearest"),
             ),
-            # Orientationd(keys=["image", "label"], axcodes="RAI"),
+            # Orientationd(keys=["image", "landmarks"], axcodes="RAI"),
             ScaleIntensityd(
                 keys=["image"],minv = 0.0, maxv = 1.0, factor = None
             ),
-            # CropForegroundd(keys=["image", "label"], source_key="image"),
+            # CropForegroundd(keys=["image", "landmarks"], source_key="image"),
             RandCropByPosNegLabeld(
-                keys=["image", "label"],
-                label_key="label",
+                keys=["image", "landmarks"],
+                label_key="landmarks",
                 spatial_size=CropSize,
                 pos=1,
                 neg=1,
                 num_samples=4,
                 image_key="image",
                 image_threshold=0,
-            ),
-            RandFlipd(
-                keys=["image", "label"],
-                spatial_axis=[0],
-                prob=0.10,
-            ),
-            RandFlipd(
-                keys=["image", "label"],
-                spatial_axis=[1],
-                prob=0.10,
-            ),
-            RandFlipd(
-                keys=["image", "label"],
-                spatial_axis=[2],
-                prob=0.10,
-            ),
-            RandRotate90d(
-                keys=["image", "label"],
-                prob=0.10,
-                max_k=3,
-            ),
-            RandShiftIntensityd(
-                keys=["image"],
-                offsets=0.10,
-                prob=0.50,
-            ),
-            ToTensord(keys=["image", "label"]),
-        ]
-    )
-
-    return train_transforms
-
-def createALITrainTransform(wanted_spacing = [0.5,0.5,0.5],CropSize = [64,64,64],outdir="Out"):
-
-    train_transforms = Compose(
-        [
-            LoadImaged(keys=["image", "landmarks"]),
-            AddChanneld(keys=["image", "landmarks"]),
-            Spacingd(
-                keys=["image", "landmarks", "label"],
-                pixdim=wanted_spacing,
-                mode=("bilinear", "nearest", "nearest"),
-            ),
-            # Orientationd(keys=["image", "label"], axcodes="RAI"),
-            ScaleIntensityd(
-                keys=["image"],minv = 0.0, maxv = 1.0, factor = None
-            ),
-            # CropForegroundd(keys=["image", "label"], source_key="image"),
-            RandCropByLabelClassesd(
-                keys=["image", "landmarks"],
-                label_key="label",
-                spatial_size=CropSize,
-                ratios=[1],
-                num_classes=2,
-                num_samples=4,
             ),
             RandFlipd(
                 keys=["image", "landmarks"],
@@ -211,74 +154,110 @@ def createALITrainTransform(wanted_spacing = [0.5,0.5,0.5],CropSize = [64,64,64]
 
     return train_transforms
 
+def createALITrainTransform(wanted_spacing = [0.5,0.5,0.5],CropSize = [64,64,64],outdir="Out"):
 
+    train_transforms = Compose(
+        [
+            LoadImaged(keys=["image", "landmarks","label"]),
+            AddChanneld(keys=["image", "landmarks","label"]),
+            Spacingd(
+                keys=["image", "landmarks", "label"],
+                pixdim=wanted_spacing,
+                mode=("bilinear", "nearest", "nearest"),
+            ),
+            # Orientationd(keys=["image", "landmarks", "label"], axcodes="RAI"),
+            ScaleIntensityd(
+                keys=["image"],minv = 0.0, maxv = 1.0, factor = None
+            ),
+            CropForegroundd(keys=["image", "landmarks", "label"], source_key="image"),
+            RandCropByLabelClassesd(
+                keys=["image", "landmarks"],
+                label_key="label",
+                spatial_size=CropSize,
+                ratios=[1,1],
+                num_classes=2,
+                num_samples=4,
+            ),
+            RandFlipd(
+                keys=["image", "landmarks"],
+                spatial_axis=[0],
+                prob=0.10,
+            ),
+            RandFlipd(
+                keys=["image", "landmarks"],
+                spatial_axis=[1],
+                prob=0.10,
+            ),
+            RandFlipd(
+                keys=["image", "landmarks"],
+                spatial_axis=[2],
+                prob=0.10,
+            ),
+            RandRotate90d(
+                keys=["image", "landmarks"],
+                prob=0.10,
+                max_k=3,
+            ),
+            RandShiftIntensityd(
+                keys=["image"],
+                offsets=0.10,
+                prob=0.50,
+            ),
+            ToTensord(keys=["image", "landmarks","label"]),
+        ]
+    )
+
+    return train_transforms
 
 def createValidationTransform(wanted_spacing = [0.5,0.5,0.5],outdir="Out"):
 
     val_transforms = Compose(
         [
-            LoadImaged(keys=["image", "label"]),
-            AddChanneld(keys=["image", "label"]),
+            LoadImaged(keys=["image", "landmarks"]),
+            AddChanneld(keys=["image", "landmarks"]),
             Spacingd(
-                keys=["image", "label"],
+                keys=["image", "landmarks"],
                 pixdim=wanted_spacing,
                 mode=("bilinear", "nearest"),
             ),
-            Orientationd(keys=["image", "label"], axcodes="RAI"),
+            # Orientationd(keys=["image", "landmarks"], axcodes="RAI"),
             ScaleIntensityd(
                 keys=["image"],minv = 0.0, maxv = 1.0, factor = None
             ),
-            CropForegroundd(keys=["image", "label"], source_key="image"),
-            ToTensord(keys=["image", "label"]),
+            # CropForegroundd(keys=["image", "landmarks"], source_key="image"),
+            ToTensord(keys=["image", "landmarks"]),
         ]
     )
 
     return val_transforms
 
-def createPredictTransform(wanted_spacing = [0.5,0.5,0.5],outdir="out"):
+def createPredictTransform(data):
 
     pre_transforms = Compose(
-        [
-            LoadImaged(keys="image"),
-            AddChanneld(keys="image"),
-            Spacingd(
-                keys="image",
-                pixdim=wanted_spacing,
-                mode="bilinear",
-            ),
-            # Orientationd(keys="image", axcodes="RAI"),
-            ScaleIntensityd(
-                keys=["image"],minv = 0.0, maxv = 1.0, factor = None
-            ),
-            CropForegroundd(keys="image", source_key="image"),
-            ToTensord(keys="image"),
-            SaveImaged(
-                keys="image",
-                meta_keys="image_meta_dict", 
-                output_dir=outdir, output_postfix="Input", 
-                resample=False
-            ),
-        ]
+        [AddChannel(),ScaleIntensity(minv = 0.0, maxv = 1.0, factor = None)]
     )
 
-    return pre_transforms
+    input_img = sitk.ReadImage(data) 
+    img = sitk.GetArrayFromImage(input_img)
+    pre_img = torch.from_numpy(pre_transforms(img))
+    pre_img = pre_img.type(torch.DoubleTensor)
+    return pre_img,input_img
 
+def SavePrediction(data,input_img, outpath):
 
-def SavePrediction(data, outpath):
+    print("Saving prediction to : ", outpath)
 
-    save_transform = Compose(
-        [
-            # Orientationd(keys="pred", axcodes="RAI"),
-            SaveImaged(
-                keys="pred",
-                meta_keys="image_meta_dict", 
-                output_dir=outpath, output_postfix="M_Pred", 
-                resample=False
-            ),
-        ]
-    )
-    
-    save_transform(data)
+    # print(data)
+
+    img = data.numpy()[0][:]
+    output = sitk.GetImageFromArray(img)
+    output.SetSpacing(input_img.GetSpacing())
+    output.SetDirection(input_img.GetDirection())
+    output.SetOrigin(input_img.GetOrigin())
+
+    writer = sitk.ImageFileWriter()
+    writer.SetFileName(outpath)
+    writer.Execute(output)
 
 # #####################################
 #  Training
@@ -311,7 +290,8 @@ def validation(inID, outID,model,cropSize, post_label, post_pred, dice_metric, g
     return mean_dice_val
 
  
-def train(inID, outID, data_model, cropSize, global_step, eval_num, max_iterations, train_loader, val_loader, epoch_loss_values, metric_values, dice_val_best, global_step_best, dice_metric, post_label, post_pred):
+def train(inID, outID, data_model, cropSize, global_step, eval_num, max_iterations, train_loader, 
+        val_loader, epoch_loss_values, metric_values, dice_val_best, global_step_best, dice_metric, post_label, post_pred):
     
     model = data_model["model"]
     model.train()

@@ -18,14 +18,22 @@ def main(args):
     spacing = args.spacing
     cropSize = args.crop_size
 
-    trainingSet, validationSet, root_dir = setupTrain(
+    datalist = GetDataList(
         dirDict = {
             "image" : args.dir_scans,
             "landmarks" : args.dir_landmarks,
-        },
-        test_percentage = args.test_percentage,
-        dir_model = args.dir_model
+        }
     )
+
+    trainingSet, validationSet = train_test_split(datalist, test_size=args.test_percentage/100, random_state=len(datalist))  
+
+    if not os.path.exists(args.dir_model):
+        os.makedirs(args.dir_model)
+
+    directory = os.environ.get("MONAI_DATA_DIRECTORY")
+    root_dir = tempfile.mkdtemp() if directory is None else directory
+
+    print("WORKING IN : ", root_dir)
 
     train_transforms = createROITrainTransform(spacing,cropSize,args.dir_cash)
     val_transforms = createValidationTransform(spacing,args.dir_cash)

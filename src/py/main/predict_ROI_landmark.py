@@ -3,19 +3,6 @@ from utils import*
 
 import argparse
 
-import logging
-import os
-import sys
-import tempfile
-import glob
-import SimpleITK as sitk
-
-import nibabel as nib
-import numpy as np
-import torch
-
-
-
 def main(args):
 
     label_nbr = args.nbr_label
@@ -26,15 +13,11 @@ def main(args):
     scan_lst = []
     datalist = []
 
-    scan_normpath = os.path.normpath("/".join([args.dir, '**', '']))
-    for img_fn in sorted(glob.iglob(scan_normpath, recursive=True)):
-        #  print(img_fn)
-        if os.path.isfile(img_fn) and True in [ext in img_fn for ext in [".nrrd", ".nrrd.gz", ".nii", ".nii.gz", ".gipl", ".gipl.gz"]]:
-            scan_lst.append(img_fn)
-
-    for file_id in range(0,len(scan_lst)):
-        data = {"image" : scan_lst[file_id]}
-        datalist.append(data)
+    datalist = GetDataList(
+        dirDict = {
+            "image" : args.dir
+        }
+    )
 
     os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")

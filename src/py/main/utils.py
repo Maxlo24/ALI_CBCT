@@ -1,13 +1,18 @@
-
 import os
-import shutil
+import itk
 import tempfile
 import datetime
-
-import SimpleITK as sitk
-import matplotlib.pyplot as plt
 import numpy as np
+import SimpleITK as sitk
+import csv
+import pandas as pd
+import matplotlib.pyplot as plt
 from tqdm import tqdm
+from sklearn.model_selection import train_test_split
+import torch
+import glob
+
+# ----- MONAI ------
 
 from monai.losses import DiceCELoss
 from monai.inferers import sliding_window_inference
@@ -44,16 +49,29 @@ from monai.data import (
     decollate_batch,
 )
 
-from sklearn.model_selection import train_test_split
 
-import torch
-import glob
+######## ########     ###    #### ##    ## #### ##    ##  ######   
+   ##    ##     ##   ## ##    ##  ###   ##  ##  ###   ## ##    ##  
+   ##    ##     ##  ##   ##   ##  ####  ##  ##  ####  ## ##        
+   ##    ########  ##     ##  ##  ## ## ##  ##  ## ## ## ##   #### 
+   ##    ##   ##   #########  ##  ##  ####  ##  ##  #### ##    ##  
+   ##    ##    ##  ##     ##  ##  ##   ###  ##  ##   ### ##    ##  
+   ##    ##     ## ##     ## #### ##    ## #### ##    ##  ######   
+
+
+# #####################################
+#  label list
+# #####################################
+
+U_labels = ['PNS','ANS','A','UR6apex','UR3apex','U1apex','UL3apex','UL6apex','UR6d','UR6m','UR3tip','UItip','UL3tip','UL6m','UL6d']
+L_labels = ['RCo','RGo','LR6apex','LR7apex','L1apex','Me','Gn','Pog','B','LL6apex','LL7apex','LGo','LCo','LR6d','LR6m','LItip','LL6m','LL6d']
+CB_labels = ['Ba','S','N']
 
 # #####################################
 #  Setup Training
 # #####################################
 
-def setupTrain(dirDict,test_percentage,dir_model):
+def GetDataList(dirDict):
     scan_lst = []
     label_lst = []
     datalist = []
@@ -81,17 +99,9 @@ def setupTrain(dirDict,test_percentage,dir_model):
             data[key] = value[file_id]
         datalist.append(data)
 
-    trainingSet, validationSet = train_test_split(datalist, test_size=test_percentage/100, random_state=len(datalist))  
 
-    if not os.path.exists(dir_model):
-        os.makedirs(dir_model)
 
-    directory = os.environ.get("MONAI_DATA_DIRECTORY")
-    root_dir = tempfile.mkdtemp() if directory is None else directory
-
-    print("WORKING IN : ", root_dir)
-
-    return trainingSet, validationSet, root_dir
+    return datalist
 
 # #####################################
 #  Transforms
@@ -355,3 +365,487 @@ def train(inID, outID, data_model, cropSize, global_step, eval_num, max_iteratio
         data_model["model"] = model
 
     return global_step, dice_val_best, global_step_best
+
+
+
+########  #######   #######  ##        ######  
+   ##    ##     ## ##     ## ##       ##    ## 
+   ##    ##     ## ##     ## ##       ##       
+   ##    ##     ## ##     ## ##        ######  
+   ##    ##     ## ##     ## ##             ## 
+   ##    ##     ## ##     ## ##       ##    ## 
+   ##     #######   #######  ########  ######  
+
+
+# #####################################
+#  SetFile spacing
+# #####################################
+
+def ResampleImage(input,size,spacing,origin,direction,interpolator,VectorImageType):
+        ResampleType = itk.ResampleImageFilter[VectorImageType, VectorImageType]
+
+        resampleImageFilter = ResampleType.New()
+        resampleImageFilter.SetOutputSpacing(spacing.tolist())
+        resampleImageFilter.SetOutputOrigin(origin)
+        resampleImageFilter.SetOutputDirection(direction)
+        resampleImageFilter.SetInterpolator(interpolator)
+        resampleImageFilter.SetSize(size)
+        resampleImageFilter.SetInput(input)
+        resampleImageFilter.Update()
+
+        resampled_img = resampleImageFilter.GetOutput()
+        return resampled_img
+
+
+def SetSpacingFromRef(file,refFile,outpath=-1):
+    r"""
+    Set the spacing of the image the same as the reference image 
+
+    Parameters
+    ----------
+    filePath
+     path of the image file 
+    refFile
+     path of the reference image 
+    outpath
+     path to save the new image
+    """
+
+    img = itk.imread(file)
+
+    ref = itk.imread(refFile)
+
+    img_sp = np.array(img.GetSpacing()) 
+    img_size = np.array(itk.size(img))
+
+    ref_sp = np.array(ref.GetSpacing())
+    ref_size = np.array(itk.size(ref))
+
+    if not (np.array_equal(img_sp,ref_sp) and np.array_equal(img_size,ref_size)):
+        ref_info = itk.template(ref)[1]
+        pixel_type = ref_info[0]
+        pixel_dimension = ref_info[1]
+
+        VectorImageType = itk.Image[pixel_type, pixel_dimension]
+
+        if True in [seg in os.path.basename(file) for seg in ["seg","Seg"]]:
+            InterpolatorType = itk.NearestNeighborInterpolateImageFunction[VectorImageType, itk.D]
+            # print("Rescale Seg with spacing :", output_spacing)
+        else:
+            InterpolatorType = itk.LinearInterpolateImageFunction[VectorImageType, itk.D]
+            # print("Rescale Scan with spacing :", output_spacing)
+
+        interpolator = InterpolatorType.New()
+        resampled_img = ResampleImage(img,ref_size.tolist(),ref_sp,ref.GetOrigin(),ref.GetDirection(),interpolator,VectorImageType)
+
+        if outpath != -1:
+            itk.imwrite(resampled_img, outpath)
+        return resampled_img
+
+    else:
+        # print("Already at the wanted spacing")
+        if outpath != -1:
+            itk.imwrite(img, outpath)
+        return img
+
+
+
+
+def SetSpacing(filepath,output_spacing=[0.5, 0.5, 0.5],outpath=-1):
+    r"""
+    Set the spacing of the image at the wanted scale 
+
+    Parameters
+    ----------
+    filePath
+     path of the image file 
+    output_spacing
+     whanted spacing of the new image file (default : [0.5, 0.5, 0.5])
+    outpath
+     path to save the new image
+    """
+
+    print("Reading:", filepath)
+    img = itk.imread(filepath)
+
+    spacing = np.array(img.GetSpacing())
+    output_spacing = np.array(output_spacing)
+
+    if not np.array_equal(spacing,output_spacing):
+
+        size = itk.size(img)
+        scale = spacing/output_spacing
+
+        output_size = (np.array(size)*scale).astype(int).tolist()
+        output_origin = img.GetOrigin()
+
+        #Find new origin
+        output_physical_size = np.array(output_size)*np.array(output_spacing)
+        input_physical_size = np.array(size)*spacing
+        output_origin = np.array(output_origin) - (output_physical_size - input_physical_size)/2.0
+
+        img_info = itk.template(img)[1]
+        pixel_type = img_info[0]
+        pixel_dimension = img_info[1]
+
+        VectorImageType = itk.Image[pixel_type, pixel_dimension]
+
+        if True in [seg in os.path.basename(filepath) for seg in ["seg","Seg"]]:
+            InterpolatorType = itk.NearestNeighborInterpolateImageFunction[VectorImageType, itk.D]
+            # print("Rescale Seg with spacing :", output_spacing)
+        else:
+            InterpolatorType = itk.LinearInterpolateImageFunction[VectorImageType, itk.D]
+            # print("Rescale Scan with spacing :", output_spacing)
+
+        interpolator = InterpolatorType.New()
+        resampled_img = ResampleImage(img,output_size,output_spacing,output_origin,img.GetDirection(),interpolator,VectorImageType)
+
+        if outpath != -1:
+            itk.imwrite(resampled_img, outpath)
+        return resampled_img
+
+    else:
+        # print("Already at the wanted spacing")
+        if outpath != -1:
+            itk.imwrite(img, outpath)
+        return img
+
+
+# #####################################
+#  Keep the landmark of the segmentation
+# #####################################
+
+def RemoveLabel(filepath,outpath,labelToRemove = [1,5,6], label_radius = 4):
+    r"""
+    Remove the unwanted labels from a file and make the other one bigger  
+
+    Parameters
+    ----------
+    filePath
+     path of the image file 
+    labelToRemove
+     list of the labels to remove from the image 
+    label_radius
+     radius of the dilatation to apply to the remaining labels
+    outpath
+     path to save the new image
+    """
+
+
+    print("Reading:", filepath)
+    input_img = sitk.ReadImage(filepath) 
+    img = sitk.GetArrayFromImage(input_img)
+
+    range = np.max(img)-np.min(img)
+
+    for i in labelToRemove:
+        img = np.where(img == i, 0,img)
+
+    img = np.where(img > 0, 1,img)
+    output = sitk.GetImageFromArray(img)
+    output.SetSpacing(input_img.GetSpacing())
+    output.SetDirection(input_img.GetDirection())
+    output.SetOrigin(input_img.GetOrigin())
+
+    output = sitk.BinaryDilate(output, [label_radius] * output.GetDimension())
+
+    writer = sitk.ImageFileWriter()
+    writer.SetFileName(outpath)
+    writer.Execute(output)
+    return output
+
+# #####################################
+#  Generate landmark from .fcsv files
+# #####################################
+
+def CorrectCSV(filePath, Rcar = [" ", "-1"], Rlab = ["RGo_LGo", "RCo_LCo", "LCo_RCo", "LGo_RGo"]):
+    r"""
+    Remove all the unwanted parts of a fiducial file ".fcsv" :
+    - the spaces " "
+    - the dash ! "-1"
+    _ the labels in the list
+
+    Parameters
+    ----------
+    filePath
+     path of the .fcsv file 
+    """
+    file_data = []
+    with open(filePath, mode='r') as fcsv_file:
+        csv_reader = csv.reader(fcsv_file)
+        for row in csv_reader:
+            file_data.append(row)
+
+    with open(filePath, mode='w') as fcsv_file:
+        writer = csv.writer(fcsv_file, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
+
+        for row in file_data:
+            keep = True
+            if "#" not in row[0]:
+                for car in Rcar : row[11] = row[11].replace(car,"")
+                if True in [label in row[11] for label in Rlab] : keep = False
+
+            if(keep):
+                writer.writerow(row)
+
+def ReadFCSV(filePath):
+    r"""
+    Read fiducial file ".fcsv" and return a liste of landmark dictionnary
+
+    Parameters
+    ----------
+    filePath
+     path of the .fcsv file 
+    """
+    Landmark_lst = []
+    with open(filePath, mode='r') as csv_file:
+        csv_reader = csv.reader(csv_file)
+        for row in csv_reader:
+            if "#" not in row[0]:
+                landmark = {}
+                landmark["id"], landmark["x"], landmark["y"], landmark["z"], landmark["label"] = row[0], row[1], row[2], row[3], row[11]
+                Landmark_lst.append(landmark)
+    return Landmark_lst
+
+def GetSphereMaskCoord(h,w,l,center,rad):
+    X, Y, Z = np.ogrid[:h, :w, :l]
+    dist_from_center = np.sqrt((X - center[0])**2 + (Y-center[1])**2 + (Z-center[2])**2)
+    mask = dist_from_center <= rad
+
+    return np.array(np.where(mask))
+
+def GetImageInfo(filepath):
+    ref = sitk.ReadImage(filepath)
+    ref_size = np.array(ref.GetSize())
+    ref_spacing = np.array(ref.GetSpacing())
+    ref_origin = np.array(ref.GetOrigin())
+    ref_direction = np.array(ref.GetDirection())
+
+    return ref_size,ref_spacing,ref_origin,ref_direction
+
+def CreateNewImage(size,origin,spacing,direction):
+    image = sitk.Image(size.tolist(), sitk.sitkInt16)
+    image.SetOrigin(origin.tolist())
+    image.SetSpacing(spacing.tolist())
+    image.SetDirection(direction.tolist())
+
+    return image
+
+def GenSeperateLabels(filePath,refImg,outpath,rad,label_lst):
+    r"""
+    Generate a label image from a fiducial file ".fcsv".
+    The generated image will match with the reference image. 
+
+    Parameters
+    ----------
+    filePath
+     path of the .fcsv file 
+    refImg
+     reference image to use to generate the label image
+    outpath
+     path to save the generated image
+    rad
+     landmarks radius
+    label_lst
+     landmarks labeks list
+     """
+
+    print("Generating landmarks image at : ", outpath)
+
+    ref_size,ref_spacing,ref_origin,ref_direction = GetImageInfo(refImg)
+
+    image_3D = CreateNewImage(ref_size,ref_origin,ref_spacing,ref_direction)
+
+    physical_origin = abs(ref_origin/ref_spacing)
+
+    lm_lst = ReadFCSV(filePath)
+    for lm in lm_lst :
+        lm_ph_coord = np.array([float(lm["x"]),float(lm["y"]),float(lm["z"])])
+        lm_ph_coord = lm_ph_coord/ref_spacing+physical_origin
+        lm_coord = lm_ph_coord.astype(int)
+        maskCoord = GetSphereMaskCoord(ref_size[0],ref_size[1],ref_size[2],lm_coord,rad)
+        maskCoord=maskCoord.tolist()
+
+        lm_label = label_lst.index(lm['label']) + 1
+        for i in range(0,len(maskCoord[0])):
+            image_3D.SetPixel([maskCoord[0][i],maskCoord[1][i],maskCoord[2][i]],lm_label)
+
+    writer = sitk.ImageFileWriter()
+    writer.SetFileName(outpath)
+    writer.Execute(image_3D)
+
+def GenerateUpLowCBLabels(upfilePath,lowfilePath,cbPath,refImg,outpath,rad):
+    r"""
+    Generate a label image from a fiducial file ".fcsv".
+    The generated image will match with the reference image. 
+
+    Parameters
+    ----------
+    upfilePath
+     path of the upper.fcsv file 
+    lowfilePath
+     path of the lower.fcsv file 
+    refImg
+     reference image to use to generate the label image
+    outpath
+     path to save the generated image
+    rad
+     landmarks radius
+     """
+
+    print("Generating landmarks image at : ", outpath)
+
+    ref_size,ref_spacing,ref_origin,ref_direction = GetImageInfo(refImg)
+
+    image_3D = CreateNewImage(ref_size,ref_origin,ref_spacing,ref_direction)
+
+    physical_origin = abs(ref_origin/ref_spacing)
+
+    ulm_lst = ReadFCSV(upfilePath)
+    llm_lst = ReadFCSV(lowfilePath)
+    cblm_lst = ReadFCSV(cbPath)
+
+
+
+    # Upper landmarks
+    for lm in ulm_lst :
+        lm_ph_coord = np.array([float(lm["x"]),float(lm["y"]),float(lm["z"])])
+        lm_ph_coord = lm_ph_coord/ref_spacing+physical_origin
+        lm_coord = lm_ph_coord.astype(int)
+        maskCoord = GetSphereMaskCoord(ref_size[0],ref_size[1],ref_size[2],lm_coord,rad)
+        maskCoord=maskCoord.tolist()
+
+        for i in range(0,len(maskCoord[0])):
+            image_3D.SetPixel([maskCoord[0][i],maskCoord[1][i],maskCoord[2][i]],1)
+
+    # Lower landmarks
+    for lm in llm_lst :
+        lm_ph_coord = np.array([float(lm["x"]),float(lm["y"]),float(lm["z"])])
+        lm_ph_coord = lm_ph_coord/ref_spacing+physical_origin
+        lm_coord = lm_ph_coord.astype(int)
+        maskCoord = GetSphereMaskCoord(ref_size[0],ref_size[1],ref_size[2],lm_coord,rad)
+        maskCoord=maskCoord.tolist()
+
+        for i in range(0,len(maskCoord[0])):
+            p_val = image_3D.GetPixel([maskCoord[0][i],maskCoord[1][i],maskCoord[2][i]])
+            if p_val == 0:
+                image_3D.SetPixel([maskCoord[0][i],maskCoord[1][i],maskCoord[2][i]],2)
+            elif p_val == 1:
+                image_3D.SetPixel([maskCoord[0][i],maskCoord[1][i],maskCoord[2][i]],4)
+
+    # CB landmarks
+    for lm in cblm_lst :
+        lm_ph_coord = np.array([float(lm["x"]),float(lm["y"]),float(lm["z"])])
+        lm_ph_coord = lm_ph_coord/ref_spacing+physical_origin
+        lm_coord = lm_ph_coord.astype(int)
+        maskCoord = GetSphereMaskCoord(ref_size[0],ref_size[1],ref_size[2],lm_coord,rad)
+        maskCoord=maskCoord.tolist()
+
+        for i in range(0,len(maskCoord[0])):
+            image_3D.SetPixel([maskCoord[0][i],maskCoord[1][i],maskCoord[2][i]],3)
+
+    writer = sitk.ImageFileWriter()
+    writer.SetFileName(outpath)
+    writer.Execute(image_3D)
+
+def GenerateROIfile(lab_scan,outpath,labels = [1],radius=2):
+    r"""
+    Generate a file with the physical coordonate of the center of the ROI in a ".xlsx" file .
+    It only go through the selected labels and sperate the RAI by the radius value. 
+
+    Parameters
+    ----------
+    lab_scan
+     file with labels
+    outpath
+     path to save the generated .xlsx file
+    labels
+     list of labels to go through
+    radius
+     minimum space between 2 ROI
+     """
+
+    print("Generating ROI file at : ", outpath)
+
+    ref_size,ref_spacing,ref_origin,ref_direction = GetImageInfo(lab_scan)
+    physical_origin = abs(ref_origin/ref_spacing)
+
+    # print("Reading:", filepath)
+    input_img = sitk.ReadImage(lab_scan) 
+    img = sitk.GetArrayFromImage(input_img)
+
+    for lab in labels:
+        img = np.where(img==lab, -1,img)
+
+    img = np.where(img!=-1, 0,img)
+    img = np.where(img==-1, 1,img)
+
+    output = sitk.GetImageFromArray(img)
+    output.SetSpacing(input_img.GetSpacing())
+    output.SetDirection(input_img.GetDirection())
+    output.SetOrigin(input_img.GetOrigin())
+
+    # output = sitk.BinaryDilate(output, [label_radius] * output.GetDimension())
+
+    writer = sitk.ImageFileWriter()
+    writer.SetFileName(outpath)
+    writer.Execute(output)
+
+    # mask = img == -1
+        
+    # label_pos = np.array(np.where(mask))
+    # label_pos = label_pos.tolist()
+
+    # ROI_coord = [np.array([label_pos[2][0],label_pos[1][0],label_pos[0][0]])]
+    # for i in range(1,len(label_pos[0])):
+    #     ci = np.array([label_pos[2][i],label_pos[1][i],label_pos[0][i]] , dtype='int')
+    #     dist_list = np.array([np.linalg.norm(cn-ci) for cn in ROI_coord])
+    #     if all([dist > radius for dist in dist_list]):
+    #         ROI_coord.append(ci)
+
+    # print(len(ROI_coord), "ROI found")
+
+    # real_ROI_point = []
+    # for i,coord in enumerate(ROI_coord):
+    #     point= {"ID" : i}
+    #     point["coord"] = (coord-physical_origin)*ref_spacing
+    #     real_ROI_point.append(point)
+
+    #Converting array to dataframe
+    # point_data = pd.DataFrame(real_ROI_point)
+
+    # writer = pd.ExcelWriter(outpath)
+    # point_data.to_excel(writer, sheet_name = 'Point_data',index = False)
+
+    # writer.save()
+
+    # image_3D = CreateNewImage(ref_size,ref_origin,ref_spacing,ref_direction)
+
+    # for point in real_ROI_point:
+    #     lm_ph_coord = point["coord"]/ref_spacing+physical_origin
+    #     lm_coord = lm_ph_coord.astype(int)
+    #     maskCoord = GetSphereMaskCoord(ref_size[0],ref_size[1],ref_size[2],lm_coord,5)
+    #     maskCoord=maskCoord.tolist()
+
+    #     for i in range(0,len(maskCoord[0])):
+    #         image_3D.SetPixel([maskCoord[0][i],maskCoord[1][i],maskCoord[2][i]],1)
+
+    # writer = sitk.ImageFileWriter()
+    # writer.SetFileName(os.path.dirname(outpath) + "/test.nii.gz")
+    # writer.Execute(image_3D)
+
+
+def SaveFiducialFromArray(data,scan_image,outpath,label_list):
+
+    ref_size,ref_spacing,ref_origin,ref_direction = GetImageInfo(scan_image)
+    physical_origin = abs(ref_origin/ref_spacing)
+
+    for i in range(label_list):
+        label_pos = np.array(np.where(data==i+1))
+        label_pos = label_pos.tolist()
+        label_coord = [np.array([label_pos[2][0],label_pos[1][0],label_pos[0][0]], dtype='int')]
+        for i in range(1,len(label_pos[0])):
+            coord = np.array([label_pos[2][i],label_pos[1][i],label_pos[0][i]] , dtype='int')
+            label_coord.append(coord)
+
+        np.mean(label_coord)

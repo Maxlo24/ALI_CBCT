@@ -17,15 +17,23 @@ def main(args):
     spacing = args.spacing
     cropSize = args.crop_size
 
-    trainingSet, validationSet, root_dir = setupTrain(
+    datalist = GetDataList(
         dirDict = {
             "image" : args.dir_scans,
             "landmarks" : args.dir_landmarks,
             "label" : args.dir_ROI
-        },
-        test_percentage = args.test_percentage,
-        dir_model = args.dir_model
+        }
     )
+
+    trainingSet, validationSet = train_test_split(datalist, test_size=args.test_percentage/100, random_state=len(datalist))  
+
+    if not os.path.exists(args.dir_model):
+        os.makedirs(args.dir_model)
+
+    directory = os.environ.get("MONAI_DATA_DIRECTORY")
+    root_dir = tempfile.mkdtemp() if directory is None else directory
+
+    print("WORKING IN : ", root_dir)
 
     train_transforms = createALITrainTransform(spacing,cropSize,args.dir_cash)
     val_transforms = createValidationTransform(spacing,args.dir_cash)
@@ -126,7 +134,6 @@ def main(args):
     if directory is None:
         shutil.rmtree(root_dir)
 
-
 # #####################################
 #  Args
 # #####################################
@@ -145,12 +152,12 @@ if __name__ ==  '__main__':
     input_group.add_argument('--dir_model', type=str, help='Output directory of the training',default=parser.parse_args().dir_data+'/ALI_models')
 
     input_group.add_argument('-sp', '--spacing', nargs="+", type=float, help='Wanted output x spacing', default=[0.5,0.5,0.5])
-    input_group.add_argument('-cs', '--crop_size', nargs="+", type=float, help='Wanted crop size', default=[96,96,96])
+    input_group.add_argument('-cs', '--crop_size', nargs="+", type=float, help='Wanted crop size', default=[64,64,64])
     input_group.add_argument('-mi', '--max_iterations', type=int, help='Number of training epocs', default=25000)
     input_group.add_argument('-tp', '--test_percentage', type=int, help='Percentage of data to keep for validation', default=20)
     input_group.add_argument('-mn', '--model_name', type=str, help='Name of the model', default="ALI_model")
     input_group.add_argument('-nl', '--nbr_label', type=int, help='Number of label', default=19)
-    input_group.add_argument('-nw', '--nbr_worker', type=int, help='Number of worker', default=4)
+    input_group.add_argument('-nw', '--nbr_worker', type=int, help='Number of worker', default=1)
 
 
 

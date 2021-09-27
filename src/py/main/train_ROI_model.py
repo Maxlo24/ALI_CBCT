@@ -4,7 +4,7 @@ from utils import *
 import argparse
 
 import logging
-import sys
+
 
 
 def main(args):
@@ -102,27 +102,38 @@ def main(args):
     global_step = 0
     dice_val_best = 0.0
     global_step_best = 0
+    step_to_val = 0
     epoch_loss_values = []
     metric_values = []
     while global_step < max_iterations:
-        global_step, dice_val_best, global_step_best = train(
+        if (step_to_val >= eval_num) or global_step >= max_iterations:
+            dice_val_best, global_step_best = validate(
+                inID="image",
+                outID = "landmarks",
+                data_model=model_data,
+                val_loader = val_loader,
+                cropSize=cropSize,
+                global_step=global_step,
+                metric_values=metric_values,
+                dice_val_best=dice_val_best,
+                global_step_best=global_step_best,
+                dice_metric=dice_metric,
+                post_pred=post_pred,
+                post_label=post_label
+            )
+            step_to_val -= eval_num
+
+        steps = train(
             inID="image",
             outID = "landmarks",
             data_model=model_data,
-            cropSize=cropSize,
             global_step=global_step,
-            eval_num=eval_num,
+            epoch_loss_values=epoch_loss_values,
             max_iterations=max_iterations,
             train_loader=train_loader,
-            val_loader=val_loader,
-            epoch_loss_values=epoch_loss_values,
-            metric_values=metric_values,
-            dice_val_best=dice_val_best,
-            global_step_best=global_step_best,
-            dice_metric=dice_metric,
-            post_pred=post_pred,
-            post_label=post_label
         )
+        global_step += steps
+        step_to_val += steps
 
     print(
     f"train completed, best_metric: {dice_val_best:.4f} "

@@ -19,13 +19,14 @@ def main(args):
         dirDict = {
             "image" : args.dir,
             "landmarks" : args.dir_test,
+            # "fiducial" : args.fid
         }
     )
 
     for scan in datalist:
         input_img = sitk.ReadImage(scan["landmarks"]) 
         img = sitk.GetArrayFromImage(input_img)
-        SaveFiducialFromArray(img,scan["image"])
+        SaveFiducialFromArray(img,scan["image"],args.out,CB_labels)
 
 
 
@@ -34,7 +35,9 @@ if __name__ == "__main__":
     
     input_group = parser.add_argument_group('directory')
     input_group.add_argument('--dir', type=str, help='Input directory with the scans',default=None, required=True)
-    input_group.add_argument('--dir_test', type=str, help='Input directory with the scans',default=None, required=True)
+    input_group.add_argument('--dir_test', type=str, help='Input directory with the landmarks',default=None, required=True)
+    # input_group.add_argument('--fid', type=str, help='Input directory with the fiducial',default=None, required=True)
+
     # input_group.add_argument('--load_model', type=str, help='Path of the model', default=None, required=True)
     input_group.add_argument('--out', type=str, help='Output directory with the landmarks',default=None)
 

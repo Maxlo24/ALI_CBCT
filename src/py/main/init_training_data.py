@@ -142,7 +142,7 @@ if __name__ ==  '__main__':
     input_params.add_argument('-mlm','--mixed_landmark',action="store_true",help="Prepare the data for the low resolution uper and lower landmark training")
 
     if parser.parse_args().seperate_landmark:
-        spacing = [0.5,0.5,0.5]
+        spacing = [0.3,0.3,0.3]
         radius = 2
     elif parser.parse_args().mixed_landmark:
         spacing = [2,2,2]

@@ -6,11 +6,13 @@ import numpy as np
 import SimpleITK as sitk
 import csv
 import pandas as pd
-import matplotlib.pyplot as plt
 from tqdm import tqdm
 from sklearn.model_selection import train_test_split
 import torch
+import matplotlib.pyplot as plt
 import glob
+import shutil
+import sys
 
 # ----- MONAI ------
 
@@ -36,7 +38,8 @@ from monai.transforms import (
     ToTensor,
     SaveImaged,
     SaveImage,
-    RandCropByLabelClassesd
+    RandCropByLabelClassesd,
+    Lambdad
 )
 
 from monai.config import print_config
@@ -45,6 +48,7 @@ from monai.metrics import DiceMetric
 from monai.data import (
     DataLoader,
     CacheDataset,
+    SmartCacheDataset,
     load_decathlon_datalist,
     decollate_batch,
 )
@@ -67,6 +71,7 @@ U_labels = ['PNS','ANS','A','UR6apex','UR3apex','U1apex','UL3apex','UL6apex','UR
 L_labels = ['RCo','RGo','LR6apex','LR7apex','L1apex','Me','Gn','Pog','B','LL6apex','LL7apex','LGo','LCo','LR6d','LR6m','LItip','LL6m','LL6d']
 CB_labels = ['Ba','S','N']
 
+
 # #####################################
 #  Setup Training
 # #####################################
@@ -84,7 +89,7 @@ def GetDataList(dirDict):
         scan_normpath = os.path.normpath("/".join([dirPath, '**', '']))
         for img_fn in sorted(glob.iglob(scan_normpath, recursive=True)):
             #  print(img_fn)
-            if os.path.isfile(img_fn) and True in [ext in img_fn for ext in [".nrrd", ".nrrd.gz", ".nii", ".nii.gz", ".gipl", ".gipl.gz"]]:
+            if os.path.isfile(img_fn): #and True in [ext in img_fn for ext in [".nrrd", ".nrrd.gz", ".nii", ".nii.gz", ".gipl", ".gipl.gz"]]:
                 listDict[key].append(img_fn)
                 nbr_of_file +=1
 
@@ -164,7 +169,7 @@ def createROITrainTransform(wanted_spacing = [2,2,2],CropSize = [64,64,64],outdi
 
     return train_transforms
 
-def createALITrainTransform(wanted_spacing = [0.5,0.5,0.5],CropSize = [64,64,64],outdir="Out"):
+def createALITrainTransformWithROIScan(wanted_spacing = [0.5,0.5,0.5],CropSize = [64,64,64],outdir="Out"):
 
     train_transforms = Compose(
         [
@@ -214,6 +219,61 @@ def createALITrainTransform(wanted_spacing = [0.5,0.5,0.5],CropSize = [64,64,64]
                 prob=0.50,
             ),
             ToTensord(keys=["image", "landmarks","label"]),
+        ]
+    )
+
+    return train_transforms
+
+def test(x,cropSize):
+    print(x,cropSize)
+
+def createALITrainTransformWithFiducial(wanted_spacing = [0.5,0.5,0.5],CropSize = [64,64,64],outdir="Out"):
+
+    train_transforms = Compose(
+        [
+            LoadImaged(keys=["image", "landmarks"]),
+            AddChanneld(keys=["image", "landmarks"]),
+            Spacingd(
+                keys=["image", "landmarks"],
+                pixdim=wanted_spacing,
+                mode=("bilinear", "nearest"),
+            ),
+            # Orientationd(keys=["image", "landmarks", "label"], axcodes="RAI"),
+            ScaleIntensityd(
+                keys=["image"],minv = 0.0, maxv = 1.0, factor = None
+            ),
+            CropForegroundd(keys=["image", "landmarks"], source_key="image"),
+            Lambdad(
+                keys=["image", "landmarks"],
+                func = test,
+                overwrite=False
+            ),
+            RandFlipd(
+                keys=["image", "landmarks"],
+                spatial_axis=[0],
+                prob=0.10,
+            ),
+            RandFlipd(
+                keys=["image", "landmarks"],
+                spatial_axis=[1],
+                prob=0.10,
+            ),
+            RandFlipd(
+                keys=["image", "landmarks"],
+                spatial_axis=[2],
+                prob=0.10,
+            ),
+            RandRotate90d(
+                keys=["image", "landmarks"],
+                prob=0.10,
+                max_k=3,
+            ),
+            RandShiftIntensityd(
+                keys=["image"],
+                offsets=0.10,
+                prob=0.50,
+            ),
+            ToTensord(keys=["image", "landmarks"]),
         ]
     )
 
@@ -272,6 +332,34 @@ def SavePrediction(data,input_img, outpath):
 # #####################################
 #  Training
 # #####################################
+ 
+def train(inID, outID, data_model, global_step, epoch_loss_values, max_iterations, train_loader, ):
+    
+    model = data_model["model"]
+    model.train()
+    epoch_loss = 0
+    steps = 0
+    epoch_iterator = tqdm(
+        train_loader, desc="Training (X / X Steps) (loss=X.X)", dynamic_ncols=True
+    )
+    for step, batch in enumerate(epoch_iterator):
+        steps += 1
+        x, y = (batch[inID].cuda(), batch[outID].cuda())
+        logit_map = model(x)
+        loss = data_model["loss_f"](logit_map, y)
+        loss.backward()
+        epoch_loss += loss.item()
+        data_model["optimizer"].step()
+        data_model["optimizer"].zero_grad()
+        epoch_iterator.set_description(
+            "Training (%d / %d Steps) (loss=%2.5f)" % (global_step+steps, max_iterations, loss)
+        )
+        data_model["model"] = model
+
+    epoch_loss /= steps
+    epoch_loss_values.append(epoch_loss)
+
+    return steps
 
 def validation(inID, outID,model,cropSize, post_label, post_pred, dice_metric, global_step, epoch_iterator_val):
     model.eval()
@@ -299,73 +387,43 @@ def validation(inID, outID,model,cropSize, post_label, post_pred, dice_metric, g
 
     return mean_dice_val
 
- 
-def train(inID, outID, data_model, cropSize, global_step, eval_num, max_iterations, train_loader, 
-        val_loader, epoch_loss_values, metric_values, dice_val_best, global_step_best, dice_metric, post_label, post_pred):
-    
+
+def validate(inID, outID,data_model,val_loader, cropSize, global_step, metric_values, dice_val_best, global_step_best, dice_metric, post_label, post_pred):
     model = data_model["model"]
-    model.train()
     epoch_loss = 0
     step = 0
-    epoch_iterator = tqdm(
-        train_loader, desc="Training (X / X Steps) (loss=X.X)", dynamic_ncols=True
+
+    epoch_iterator_val = tqdm(
+        val_loader, desc="Validate (X / X Steps) (dice=X.X)", dynamic_ncols=True
     )
-    for step, batch in enumerate(epoch_iterator):
-        step += 1
-        x, y = (batch[inID].cuda(), batch[outID].cuda())
-        logit_map = model(x)
-        loss = data_model["loss_f"](logit_map, y)
-        loss.backward()
-        epoch_loss += loss.item()
-        data_model["optimizer"].step()
-        data_model["optimizer"].zero_grad()
-        epoch_iterator.set_description(
-            "Training (%d / %d Steps) (loss=%2.5f)" % (global_step, max_iterations, loss)
+    dice_val = validation(
+        inID=inID,
+        outID = outID,
+        model=model,
+        cropSize=cropSize,
+        global_step=global_step,
+        epoch_iterator_val=epoch_iterator_val,
+        dice_metric=dice_metric,
+        post_label=post_label,
+        post_pred=post_pred
+    )
+    metric_values.append(dice_val)
+    if dice_val > dice_val_best:
+        dice_val_best = dice_val
+        global_step_best = global_step
+        save_path = os.path.join(data_model["dir"],data_model["name"]+"_"+datetime.datetime.now().strftime("%Y_%d_%m")+"_E_"+str(global_step)+".pth")
+        torch.save(
+            model.state_dict(), save_path
         )
-        if (
-            global_step % eval_num == 0 and global_step != 0
-        ) or global_step == max_iterations:
-            epoch_iterator_val = tqdm(
-                val_loader, desc="Validate (X / X Steps) (dice=X.X)", dynamic_ncols=True
-            )
-            dice_val = validation(
-                inID=inID,
-                outID = outID,
-                model=model,
-                cropSize=cropSize,
-                global_step=global_step,
-                epoch_iterator_val=epoch_iterator_val,
-                dice_metric=dice_metric,
-                post_label=post_label,
-                post_pred=post_pred
-            )
-            epoch_loss /= step
-            epoch_loss_values.append(epoch_loss)
-            metric_values.append(dice_val)
-            if dice_val > dice_val_best:
-                dice_val_best = dice_val
-                global_step_best = global_step
-                save_path = os.path.join(data_model["dir"],data_model["name"]+"_"+datetime.datetime.now().strftime("%Y_%d_%m")+"_E_"+str(global_step)+".pth")
-                torch.save(
-                    model.state_dict(), save_path
-                )
-                data_model["best"] = save_path
-                print(
-                    "Model Was Saved ! Current Best Avg. Dice: {} Current Avg. Dice: {}".format(
-                        dice_val_best, dice_val
-                    )
-                )
-            else:
-                print(
-                    "Model Was Not Saved ! Current Best Avg. Dice: {} Current Avg. Dice: {}".format(
-                        dice_val_best, dice_val
-                    )
-                )
-        global_step += 1
-        data_model["model"] = model
+        data_model["best"] = save_path
+        print("Model Was Saved ! Current Best Avg. Dice: {} Current Avg. Dice: {}".format(dice_val_best, dice_val))
+    else:
+        print("Model Was Not Saved ! Current Best Avg. Dice: {} Current Avg. Dice: {}".format(dice_val_best, dice_val))
+    
+    # global_step += 1
+    data_model["model"] = model
 
-    return global_step, dice_val_best, global_step_best
-
+    return dice_val_best, global_step_best
 
 
 ########  #######   #######  ##        ######  
@@ -791,61 +849,59 @@ def GenerateROIfile(lab_scan,outpath,labels = [1],radius=2):
     writer.SetFileName(outpath)
     writer.Execute(output)
 
-    # mask = img == -1
-        
-    # label_pos = np.array(np.where(mask))
-    # label_pos = label_pos.tolist()
-
-    # ROI_coord = [np.array([label_pos[2][0],label_pos[1][0],label_pos[0][0]])]
-    # for i in range(1,len(label_pos[0])):
-    #     ci = np.array([label_pos[2][i],label_pos[1][i],label_pos[0][i]] , dtype='int')
-    #     dist_list = np.array([np.linalg.norm(cn-ci) for cn in ROI_coord])
-    #     if all([dist > radius for dist in dist_list]):
-    #         ROI_coord.append(ci)
-
-    # print(len(ROI_coord), "ROI found")
-
-    # real_ROI_point = []
-    # for i,coord in enumerate(ROI_coord):
-    #     point= {"ID" : i}
-    #     point["coord"] = (coord-physical_origin)*ref_spacing
-    #     real_ROI_point.append(point)
-
-    #Converting array to dataframe
-    # point_data = pd.DataFrame(real_ROI_point)
-
-    # writer = pd.ExcelWriter(outpath)
-    # point_data.to_excel(writer, sheet_name = 'Point_data',index = False)
-
-    # writer.save()
-
-    # image_3D = CreateNewImage(ref_size,ref_origin,ref_spacing,ref_direction)
-
-    # for point in real_ROI_point:
-    #     lm_ph_coord = point["coord"]/ref_spacing+physical_origin
-    #     lm_coord = lm_ph_coord.astype(int)
-    #     maskCoord = GetSphereMaskCoord(ref_size[0],ref_size[1],ref_size[2],lm_coord,5)
-    #     maskCoord=maskCoord.tolist()
-
-    #     for i in range(0,len(maskCoord[0])):
-    #         image_3D.SetPixel([maskCoord[0][i],maskCoord[1][i],maskCoord[2][i]],1)
-
-    # writer = sitk.ImageFileWriter()
-    # writer.SetFileName(os.path.dirname(outpath) + "/test.nii.gz")
-    # writer.Execute(image_3D)
-
 
 def SaveFiducialFromArray(data,scan_image,outpath,label_list):
+    r"""
+    Generate a fiducial file from an array with label
 
+    Parameters
+    ----------
+    data
+     array with the labels
+    scan_image
+     scan of referance
+    outpath
+     outpath of the fiducial path
+    label_list
+     liste of label associated with the array
+     """
+
+    print("Generating fiducial file at : ", os.path.basename(scan_image))
     ref_size,ref_spacing,ref_origin,ref_direction = GetImageInfo(scan_image)
     physical_origin = abs(ref_origin/ref_spacing)
+    print(ref_direction)
 
-    for i in range(label_list):
+    # print(physical_origin)
+
+    label_pos_lst = []
+    for i in range(len(label_list)):
         label_pos = np.array(np.where(data==i+1))
         label_pos = label_pos.tolist()
-        label_coord = [np.array([label_pos[2][0],label_pos[1][0],label_pos[0][0]], dtype='int')]
-        for i in range(1,len(label_pos[0])):
-            coord = np.array([label_pos[2][i],label_pos[1][i],label_pos[0][i]] , dtype='int')
-            label_coord.append(coord)
+        label_coords = np.array([label_pos[2][0],label_pos[1][0],label_pos[0][0]], dtype='float')
+        nbrPoint = 1
+        for j in range(1,len(label_pos[0])):
+            nbrPoint+=1
+            label_coords += np.array([label_pos[2][j],label_pos[1][j],label_pos[0][j]] , dtype='float')
+            # label_coords.append(coord)
 
-        np.mean(label_coord)
+        label_coord = label_coords/nbrPoint #+ np.array([0.45,0.45,0.45])
+
+        label_pos = (label_coord-physical_origin)*ref_spacing
+        label_pos_lst.append({"label": label_list[i], "coord" : label_pos})
+        # print(label_pos)
+
+    fiducial_name = os.path.basename(scan_image).split(".")[0]
+    fiducial_name = fiducial_name.replace("scan","CBCT")
+    fiducial_name = fiducial_name.replace("or","CB")
+    fiducial_name += ".fcsv"
+
+    file_name = os.path.join(outpath,fiducial_name)
+    f = open(file_name,'w')
+    
+    f.write("# Markups fiducial file version = 4.11\n")
+    f.write("# CoordinateSystem = LPS\n")
+    f.write("# columns = id,x,y,z,ow,ox,oy,oz,vis,sel,lock,label,desc,associatedNodeID\n")
+    for id,element in enumerate(label_pos_lst):
+        f.write(str(id)+","+str(element["coord"][0])+","+str(element["coord"][1])+","+str(element["coord"][2])+",0,0,0,1,1,1,0,"+element["label"]+",,\n")
+    # # f.write( data + "\n")
+    f.close

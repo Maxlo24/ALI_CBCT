@@ -35,8 +35,8 @@ def main(args):
 
     print("WORKING IN : ", root_dir)
 
-    train_transforms = createROITrainTransform(spacing,cropSize,args.dir_cash)
-    val_transforms = createValidationTransform(spacing,args.dir_cash)
+    train_transforms = CreateROITrainTransform(spacing,cropSize,args.dir_cash)
+    val_transforms = CreateValidationTransform(spacing,args.dir_cash)
 
     print(trainingSet)
     print(validationSet)
@@ -105,7 +105,7 @@ def main(args):
     step_to_val = 0
     epoch_loss_values = []
     metric_values = []
-    while global_step < max_iterations:
+    while global_step < 1:
         if (step_to_val >= eval_num) or global_step >= max_iterations:
             dice_val_best, global_step_best = validate(
                 inID="image",
@@ -122,7 +122,7 @@ def main(args):
                 post_label=post_label
             )
             step_to_val -= eval_num
-
+            global_step +=1
         steps = train(
             inID="image",
             outID = "landmarks",

@@ -41,7 +41,7 @@ def main(args):
     with torch.no_grad():
         for data in datalist:
 
-            pred_img,input_img = createPredictTransform(data["image"])
+            pred_img,input_img = CreatePredictTransform(data["image"])
             # print(pred_img, np.shape(pred_img))
             val_inputs = torch.unsqueeze(pred_img, 1)
             # print(val_inputs, np.shape(val_inputs))
@@ -84,9 +84,9 @@ if __name__ == "__main__":
     input_group.add_argument('--out', type=str, help='Output directory with the landmarks',default=None)
 
     
-    input_group.add_argument('-sp', '--spacing', nargs="+", type=float, help='Wanted output x spacing', default=[2,2,2])
+    input_group.add_argument('-sp', '--spacing', nargs="+", type=float, help='Wanted output x spacing', default=[0.5,0.5,0.5])
     input_group.add_argument('-cs', '--crop_size', nargs="+", type=float, help='Wanted crop size', default=[64,64,64])
-    input_group.add_argument('-nl', '--nbr_label', type=int, help='Number of label', default=5)
+    input_group.add_argument('-nl', '--nbr_label', type=int, help='Number of label', default=19)
     input_group.add_argument('-nw', '--nbr_worker', type=int, help='Number of worker', default=1)
 
     args = parser.parse_args()

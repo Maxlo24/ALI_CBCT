@@ -18,40 +18,45 @@ def main(args):
     spacing = args.spacing
     cropSize = args.crop_size
 
+    directory = os.environ.get("MONAI_DATA_DIRECTORY")
+    root_dir = tempfile.mkdtemp() if directory is None else directory
+
+    print("WORKING IN : ", root_dir)
+
+    print_config()
+    logging.basicConfig(stream=sys.stdout, level=logging.INFO)
+
     datalist = GetDataList(
         dirDict = {
             "image" : args.dir_scans,
             "landmarks" : args.dir_landmarks,
-            "label" : args.dir_ROI
+            # "label" : args.dir_ROI
         }
     )
+
+    # label_nbr = GetSegLabelNbr(datalist[0]["landmarks"])
 
     trainingSet, validationSet = train_test_split(datalist, test_size=args.test_percentage/100, random_state=len(datalist))  
 
     if not os.path.exists(args.dir_model):
         os.makedirs(args.dir_model)
 
-    directory = os.environ.get("MONAI_DATA_DIRECTORY")
-    root_dir = tempfile.mkdtemp() if directory is None else directory
 
-    print("WORKING IN : ", root_dir)
+    train_transforms = CreateALITrainTransform()
+    val_transforms = CreateValidationTransform()
 
-    train_transforms = createALITrainTransformWithROIScan(spacing,cropSize,args.dir_cash)
-    val_transforms = createValidationTransform(spacing,args.dir_cash)
-
-    print(trainingSet)
-    print(validationSet)
+    print(len(trainingSet))
+    # print(trainingSet)
+    print(len(validationSet))
+    # print(validationSet)
 
     # #####################################
     #  Load data
     # #####################################
 
-    print_config()
-    logging.basicConfig(stream=sys.stdout, level=logging.INFO)
-
     replace_rate = 1.0
-    train_cache_num = 2
-    val_cache_num = 1
+    train_cache_num = 5
+    val_cache_num = 2
 
     train_ds = SmartCacheDataset(
         data=trainingSet,
@@ -63,7 +68,7 @@ def main(args):
         cache_num = train_cache_num
     )
     train_loader = DataLoader(
-        train_ds, batch_size=2, shuffle=True, num_workers=nbr_workers, pin_memory=True
+        train_ds, batch_size=train_cache_num, shuffle=True, num_workers=nbr_workers, pin_memory=True
     )
 
     val_ds = SmartCacheDataset(
@@ -76,7 +81,7 @@ def main(args):
         cache_num = val_cache_num
     )
     val_loader = DataLoader(
-        val_ds, batch_size=1, shuffle=False, num_workers=nbr_workers, pin_memory=True
+        val_ds, batch_size=val_cache_num, shuffle=False, num_workers=nbr_workers, pin_memory=True
     )
 
     # #####################################
@@ -164,9 +169,9 @@ if __name__ ==  '__main__':
     input_group = parser.add_argument_group('dir')
     input_group.add_argument('--dir_project', type=str, help='Directory with all the project',default='/Users/luciacev-admin/Documents/Projects/ALI_benchmark')
     input_group.add_argument('--dir_data', type=str, help='Input directory with 3D images', default=parser.parse_args().dir_project+'/data')
-    input_group.add_argument('--dir_scans', type=str, help='Input directory with the scans',default=parser.parse_args().dir_data+'/Scans')
-    input_group.add_argument('--dir_landmarks', type=str, help='Input directory with the landmarks',default=parser.parse_args().dir_data+'/Landmarks')
-    input_group.add_argument('--dir_ROI', type=str, help='Input directory with the ROI',default=parser.parse_args().dir_data+'/ROI')
+    input_group.add_argument('--dir_scans', type=str, help='Input directory with the scans',default=parser.parse_args().dir_data+'/Crop/Scans')
+    input_group.add_argument('--dir_landmarks', type=str, help='Input directory with the landmarks',default=parser.parse_args().dir_data+'/Crop/Segs')
+    # input_group.add_argument('--dir_ROI', type=str, help='Input directory with the ROI',default=parser.parse_args().dir_data+'/ROI')
 
     input_group.add_argument('--dir_cash', type=str, help='Output directory of the training',default=parser.parse_args().dir_data+'/Cash')
     input_group.add_argument('--dir_model', type=str, help='Output directory of the training',default=parser.parse_args().dir_data+'/ALI_models')
@@ -177,7 +182,7 @@ if __name__ ==  '__main__':
     input_group.add_argument('-tp', '--test_percentage', type=int, help='Percentage of data to keep for validation', default=20)
     input_group.add_argument('-mn', '--model_name', type=str, help='Name of the model', default="ALI_model")
     input_group.add_argument('-nl', '--nbr_label', type=int, help='Number of label', default=19)
-    input_group.add_argument('-nw', '--nbr_worker', type=int, help='Number of worker', default=1)
+    input_group.add_argument('-nw', '--nbr_worker', type=int, help='Number of worker', default=2)
 
 
 

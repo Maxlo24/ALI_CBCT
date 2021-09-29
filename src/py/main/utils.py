@@ -2,6 +2,7 @@ import os
 import itk
 import tempfile
 import datetime
+from itk.support.types import Offset
 import numpy as np
 import SimpleITK as sitk
 import csv
@@ -39,7 +40,9 @@ from monai.transforms import (
     SaveImaged,
     SaveImage,
     RandCropByLabelClassesd,
-    Lambdad
+    Lambdad,
+    CastToTyped,
+    SpatialCrop
 )
 
 from monai.config import print_config
@@ -53,66 +56,25 @@ from monai.data import (
     decollate_batch,
 )
 
-
-######## ########     ###    #### ##    ## #### ##    ##  ######   
-   ##    ##     ##   ## ##    ##  ###   ##  ##  ###   ## ##    ##  
-   ##    ##     ##  ##   ##   ##  ####  ##  ##  ####  ## ##        
-   ##    ########  ##     ##  ##  ## ## ##  ##  ## ## ## ##   #### 
-   ##    ##   ##   #########  ##  ##  ####  ##  ##  #### ##    ##  
-   ##    ##    ##  ##     ##  ##  ##   ###  ##  ##   ### ##    ##  
-   ##    ##     ## ##     ## #### ##    ## #### ##    ##  ######   
-
-
 # #####################################
-#  label list
+#  Global variables
 # #####################################
 
 U_labels = ['PNS','ANS','A','UR6apex','UR3apex','U1apex','UL3apex','UL6apex','UR6d','UR6m','UR3tip','UItip','UL3tip','UL6m','UL6d']
 L_labels = ['RCo','RGo','LR6apex','LR7apex','L1apex','Me','Gn','Pog','B','LL6apex','LL7apex','LGo','LCo','LR6d','LR6m','LItip','LL6m','LL6d']
 CB_labels = ['Ba','S','N']
 
+data_type = torch.float32
 
-# #####################################
-#  Setup Training
-# #####################################
+######## ########     ###    ##    ##  ######  ########  #######  ########  ##     ##  ######  
+   ##    ##     ##   ## ##   ###   ## ##    ## ##       ##     ## ##     ## ###   ### ##    ## 
+   ##    ##     ##  ##   ##  ####  ## ##       ##       ##     ## ##     ## #### #### ##       
+   ##    ########  ##     ## ## ## ##  ######  ######   ##     ## ########  ## ### ##  ######  
+   ##    ##   ##   ######### ##  ####       ## ##       ##     ## ##   ##   ##     ##       ## 
+   ##    ##    ##  ##     ## ##   ### ##    ## ##       ##     ## ##    ##  ##     ## ##    ## 
+   ##    ##     ## ##     ## ##    ##  ######  ##        #######  ##     ## ##     ##  ######  
 
-def GetDataList(dirDict):
-    scan_lst = []
-    label_lst = []
-    datalist = []
-
-    listDict = {}
-
-    for key,dirPath in dirDict.items():
-        listDict[key] = []
-        nbr_of_file = 0
-        scan_normpath = os.path.normpath("/".join([dirPath, '**', '']))
-        for img_fn in sorted(glob.iglob(scan_normpath, recursive=True)):
-            #  print(img_fn)
-            if os.path.isfile(img_fn): #and True in [ext in img_fn for ext in [".nrrd", ".nrrd.gz", ".nii", ".nii.gz", ".gipl", ".gipl.gz"]]:
-                listDict[key].append(img_fn)
-                nbr_of_file +=1
-
-    
-    # if len(scan_lst) != len(label_lst):
-    #     print("ERROR : Not the same number of file in the different folders")
-    #     return
-
-    for file_id in range(0,nbr_of_file):
-        data = {}
-        for key, value in listDict.items():
-            data[key] = value[file_id]
-        datalist.append(data)
-
-
-
-    return datalist
-
-# #####################################
-#  Transforms
-# #####################################
-
-def createROITrainTransform(wanted_spacing = [2,2,2],CropSize = [64,64,64],outdir="Out"):
+def CreateROITrainTransform(wanted_spacing = [2,2,2],CropSize = [64,64,64],outdir="Out"):
 
     train_transforms = Compose(
         [
@@ -164,12 +126,14 @@ def createROITrainTransform(wanted_spacing = [2,2,2],CropSize = [64,64,64],outdi
                 prob=0.50,
             ),
             ToTensord(keys=["image", "landmarks"]),
+            CastToTyped(keys=["image", "landmarks"], dtype=[data_type,torch.int16])
+
         ]
     )
 
     return train_transforms
 
-def createALITrainTransformWithROIScan(wanted_spacing = [0.5,0.5,0.5],CropSize = [64,64,64],outdir="Out"):
+def CreateALITrainTransformWithROIScan(wanted_spacing = [0.5,0.5,0.5],CropSize = [64,64,64],outdir="Out"):
 
     train_transforms = Compose(
         [
@@ -219,6 +183,7 @@ def createALITrainTransformWithROIScan(wanted_spacing = [0.5,0.5,0.5],CropSize =
                 prob=0.50,
             ),
             ToTensord(keys=["image", "landmarks","label"]),
+            CastToTyped(keys=["image", "landmarks"], dtype=[data_type,torch.int16])
         ]
     )
 
@@ -227,27 +192,27 @@ def createALITrainTransformWithROIScan(wanted_spacing = [0.5,0.5,0.5],CropSize =
 def test(x,cropSize):
     print(x,cropSize)
 
-def createALITrainTransformWithFiducial(wanted_spacing = [0.5,0.5,0.5],CropSize = [64,64,64],outdir="Out"):
+def CreateALITrainTransform():
 
     train_transforms = Compose(
         [
             LoadImaged(keys=["image", "landmarks"]),
             AddChanneld(keys=["image", "landmarks"]),
-            Spacingd(
-                keys=["image", "landmarks"],
-                pixdim=wanted_spacing,
-                mode=("bilinear", "nearest"),
-            ),
+            # Spacingd(
+            #     keys=["image", "landmarks"],
+            #     pixdim=wanted_spacing,
+            #     mode=("bilinear", "nearest"),
+            # ),
             # Orientationd(keys=["image", "landmarks", "label"], axcodes="RAI"),
             ScaleIntensityd(
                 keys=["image"],minv = 0.0, maxv = 1.0, factor = None
             ),
-            CropForegroundd(keys=["image", "landmarks"], source_key="image"),
-            Lambdad(
-                keys=["image", "landmarks"],
-                func = test,
-                overwrite=False
-            ),
+            # CropForegroundd(keys=["image", "landmarks"], source_key="image"),
+            # Lambdad(
+            #     keys=["image", "landmarks"],
+            #     func = test,
+            #     overwrite=False
+            # ),
             RandFlipd(
                 keys=["image", "landmarks"],
                 spatial_axis=[0],
@@ -279,29 +244,30 @@ def createALITrainTransformWithFiducial(wanted_spacing = [0.5,0.5,0.5],CropSize 
 
     return train_transforms
 
-def createValidationTransform(wanted_spacing = [0.5,0.5,0.5],outdir="Out"):
+def CreateValidationTransform(wanted_spacing = [0.5,0.5,0.5],outdir="Out"):
 
     val_transforms = Compose(
         [
             LoadImaged(keys=["image", "landmarks"]),
             AddChanneld(keys=["image", "landmarks"]),
-            Spacingd(
-                keys=["image", "landmarks"],
-                pixdim=wanted_spacing,
-                mode=("bilinear", "nearest"),
-            ),
+            # Spacingd(
+            #     keys=["image", "landmarks"],
+            #     pixdim=wanted_spacing,
+            #     mode=("bilinear", "nearest"),
+            # ),
             # Orientationd(keys=["image", "landmarks"], axcodes="RAI"),
             ScaleIntensityd(
                 keys=["image"],minv = 0.0, maxv = 1.0, factor = None
             ),
             # CropForegroundd(keys=["image", "landmarks"], source_key="image"),
             ToTensord(keys=["image", "landmarks"]),
+            # CastToTyped(keys=["image", "landmarks"], dtype=[data_type,torch.int16])
         ]
     )
 
     return val_transforms
 
-def createPredictTransform(data):
+def CreatePredictTransform(data):
 
     pre_transforms = Compose(
         [AddChannel(),ScaleIntensity(minv = 0.0, maxv = 1.0, factor = None)]
@@ -310,7 +276,7 @@ def createPredictTransform(data):
     input_img = sitk.ReadImage(data) 
     img = sitk.GetArrayFromImage(input_img)
     pre_img = torch.from_numpy(pre_transforms(img))
-    pre_img = pre_img.type(torch.DoubleTensor)
+    pre_img = pre_img.type(data_type)
     return pre_img,input_img
 
 def SavePrediction(data,input_img, outpath):
@@ -329,9 +295,13 @@ def SavePrediction(data,input_img, outpath):
     writer.SetFileName(outpath)
     writer.Execute(output)
 
-# #####################################
-#  Training
-# #####################################
+######## ########     ###    #### ##    ## #### ##    ##  ######   
+   ##    ##     ##   ## ##    ##  ###   ##  ##  ###   ## ##    ##  
+   ##    ##     ##  ##   ##   ##  ####  ##  ##  ####  ## ##        
+   ##    ########  ##     ##  ##  ## ## ##  ##  ## ## ## ##   #### 
+   ##    ##   ##   #########  ##  ##  ####  ##  ##  #### ##    ##  
+   ##    ##    ##  ##     ##  ##  ##   ###  ##  ##   ### ##    ##  
+   ##    ##     ## ##     ## #### ##    ## #### ##    ##  ######   
  
 def train(inID, outID, data_model, global_step, epoch_loss_values, max_iterations, train_loader, ):
     
@@ -364,9 +334,10 @@ def train(inID, outID, data_model, global_step, epoch_loss_values, max_iteration
 def validation(inID, outID,model,cropSize, post_label, post_pred, dice_metric, global_step, epoch_iterator_val):
     model.eval()
     dice_vals = list()
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     with torch.no_grad():
         for step, batch in enumerate(epoch_iterator_val):
-            val_inputs, val_labels = (batch[inID].cuda(), batch[outID].cuda())
+            val_inputs, val_labels = (batch[inID].to(device), batch[outID].to(device))
             val_outputs = sliding_window_inference(val_inputs, cropSize, 4, model)
             val_labels_list = decollate_batch(val_labels)
             val_labels_convert = [
@@ -376,6 +347,7 @@ def validation(inID, outID,model,cropSize, post_label, post_pred, dice_metric, g
             val_output_convert = [
                 post_pred(val_pred_tensor) for val_pred_tensor in val_outputs_list
             ]
+            dice = IoU_Dice(y_true_lst=val_output_convert, y_pred_lst=val_labels_convert)
             dice_metric(y_pred=val_output_convert, y=val_labels_convert)
             dice = dice_metric.aggregate().item()
             dice_vals.append(dice)
@@ -425,6 +397,46 @@ def validate(inID, outID,data_model,val_loader, cropSize, global_step, metric_va
 
     return dice_val_best, global_step_best
 
+##     ## ######## ######## ########  ####  ######  
+###   ### ##          ##    ##     ##  ##  ##    ## 
+#### #### ##          ##    ##     ##  ##  ##       
+## ### ## ######      ##    ########   ##  ##       
+##     ## ##          ##    ##   ##    ##  ##       
+##     ## ##          ##    ##    ##   ##  ##    ## 
+##     ## ########    ##    ##     ## ####  ######  
+
+
+def IoU_Dice(y_true_lst, y_pred_lst):
+
+    for i in range(len(y_true_lst)):
+
+        y_true = y_true_lst[i]
+        y_pred = y_pred_lst[i]
+        print(y_pred.size())
+
+        num_classes = y_true.size()[0]
+        
+        y_true = torch.reshape(y_true, (num_classes,-1))
+        y_pred = torch.reshape(y_pred, (num_classes,-1))
+
+        print(y_pred)
+
+
+        print(y_pred.size())
+
+        intersection = 2.0*torch.sum(y_true * y_pred, dim=0) + 1.
+        print(intersection.size())
+        print(intersection)
+
+        union = torch.sum(y_true,dim=0) + torch.sum(y_pred,dim=0) + 1.
+        print(union)
+
+        iou = 1.0 - intersection / union
+        print(iou)
+        print(torch.sum(iou))
+
+        return torch.sum(iou)
+
 
 ########  #######   #######  ##        ######  
    ##    ##     ## ##     ## ##       ##    ## 
@@ -433,6 +445,153 @@ def validate(inID, outID,data_model,val_loader, cropSize, global_step, metric_va
    ##    ##     ## ##     ## ##             ## 
    ##    ##     ## ##     ## ##       ##    ## 
    ##     #######   #######  ########  ######  
+
+
+# #####################################
+#  Setup Training
+# #####################################
+
+def GetDataList(dirDict):
+    """
+    Go through each dirPath directory to generate a list of dictionary 
+    each dictionary contain the key-n : filepath of the sorted key-n : dirPath directorys
+
+    Parameters
+    ----------
+    dirDict
+     dictionary of key : dirPath 
+    """
+    scan_lst = []
+    label_lst = []
+    datalist = []
+
+    listDict = {}
+
+    for key,dirPath in dirDict.items():
+        listDict[key] = []
+        nbr_of_file = 0
+        scan_normpath = os.path.normpath("/".join([dirPath, '**', '']))
+        for img_fn in sorted(glob.iglob(scan_normpath, recursive=True)):
+            #  print(img_fn)
+            if os.path.isfile(img_fn): #and True in [ext in img_fn for ext in [".nrrd", ".nrrd.gz", ".nii", ".nii.gz", ".gipl", ".gipl.gz"]]:
+                listDict[key].append(img_fn)
+                nbr_of_file +=1
+
+    
+    # if len(scan_lst) != len(label_lst):
+    #     print("ERROR : Not the same number of file in the different folders")
+    #     return
+
+    for file_id in range(0,nbr_of_file):
+        data = {}
+        for key, value in listDict.items():
+            data[key] = value[file_id]
+        datalist.append(data)
+
+    return datalist
+
+
+def CropImageFromROIfile(image,seg,roi_file,outpath,cropSize,radius=4):
+    """
+    Crop part of the image and the seg file based on the regions of interest (ROI) center 
+
+    Parameters
+    ----------
+    image
+     path of the image file 
+    seg
+     path of the seg file
+    roi_file
+     path of the ROI file
+    outpath
+     path to save the new images
+    cropSize
+     size of the crop
+    radius
+     minimum distance (pixels) between 2 ROI 
+    """
+
+    print("Cropping :", os.path.basename(image), os.path.basename(seg))
+
+    transform = AddChannel()
+
+    input_img = sitk.ReadImage(image)
+    img_ar = sitk.GetArrayFromImage(input_img)
+    img_tens = transform(torch.from_numpy(img_ar))
+
+    input_seg = sitk.ReadImage(seg)
+    seg_ar = sitk.GetArrayFromImage(input_seg)
+    seg_tens = transform(torch.from_numpy(seg_ar))
+
+    ROI_img = sitk.ReadImage(roi_file) 
+    ROI_ar = sitk.GetArrayFromImage(ROI_img)
+    # print(np.shape(ROI_ar))
+
+
+    mask = ROI_ar == 1
+            
+    label_pos = np.array(np.where(mask),dtype='int')
+    label_pos = label_pos.tolist()
+
+    offset = np.array([2,1,1])
+
+    ROI_coord = [np.array([label_pos[0][0],label_pos[1][0],label_pos[2][0]]) + offset]
+    for i in range(1,len(label_pos[0])):
+        ci = np.array([label_pos[0][i],label_pos[1][i],label_pos[2][i]]) + offset
+        dist_list = np.array([np.linalg.norm(cn-ci) for cn in ROI_coord])
+        if all([dist > radius for dist in dist_list]):
+            ROI_coord.append(ci)
+
+    # print(ROI_coord)
+
+    crop_centers = []
+    factor = np.array(ROI_img.GetSpacing()) / np.array(input_img.GetSpacing())
+    # print(factor)
+    for coord in ROI_coord:
+        crop_centers.append(coord*factor)
+
+    print(len(crop_centers), "ROI found")
+    # print(crop_centers)
+
+    scan_name = os.path.basename(image).split('.')
+    ext = ""
+    for e in scan_name[1:]:
+       ext += "." + e 
+    scan_outpath = os.path.normpath("/".join([outpath, 'Scans', scan_name[0]]))
+    if not os.path.exists(scan_outpath):
+        os.makedirs(scan_outpath)
+
+    seg_name = os.path.basename(seg).split('.')
+    seg_outpath = os.path.normpath("/".join([outpath, 'Segs', seg_name[0]]))
+    if not os.path.exists(seg_outpath):
+        os.makedirs(seg_outpath)
+
+
+    for i,center_coord in enumerate(crop_centers):
+        cropTransform = SpatialCrop(center_coord,cropSize)
+        cr_img = cropTransform(img_tens)
+        cr_seg = cropTransform(seg_tens)
+        # print(img.size())
+
+        out_img = cr_img.numpy()[0][:]
+        output_img = sitk.GetImageFromArray(out_img)
+        output_img.SetSpacing(input_img.GetSpacing())
+        output_img.SetDirection(input_img.GetDirection())
+        output_img.SetOrigin(input_img.GetOrigin())
+
+        out_seg = cr_seg.numpy()[0][:]
+        output_seg = sitk.GetImageFromArray(out_seg)
+        output_seg.SetSpacing(input_seg.GetSpacing())
+        output_seg.SetDirection(input_seg.GetDirection())
+        output_seg.SetOrigin(input_seg.GetOrigin())
+
+        writer = sitk.ImageFileWriter()
+        writer.SetFileName(os.path.join(scan_outpath,scan_name[0] + "_" +str(i) + ext))
+        writer.Execute(output_img)
+
+        writer.SetFileName(os.path.join(seg_outpath,seg_name[0] + "_" +str(i) + ext))
+        writer.Execute(output_seg)
+
 
 
 # #####################################
@@ -455,8 +614,8 @@ def ResampleImage(input,size,spacing,origin,direction,interpolator,VectorImageTy
         return resampled_img
 
 
-def SetSpacingFromRef(file,refFile,outpath=-1):
-    r"""
+def SetSpacingFromRef(file,refFile,interpolator = "NearestNeighbor",outpath=-1):
+    """
     Set the spacing of the image the same as the reference image 
 
     Parameters
@@ -465,6 +624,8 @@ def SetSpacingFromRef(file,refFile,outpath=-1):
      path of the image file 
     refFile
      path of the reference image 
+    interpolator
+     Type of interpolation 'NearestNeighbor' or 'Linear'
     outpath
      path to save the new image
     """
@@ -486,10 +647,10 @@ def SetSpacingFromRef(file,refFile,outpath=-1):
 
         VectorImageType = itk.Image[pixel_type, pixel_dimension]
 
-        if True in [seg in os.path.basename(file) for seg in ["seg","Seg"]]:
+        if interpolator == "NearestNeighbor":
             InterpolatorType = itk.NearestNeighborInterpolateImageFunction[VectorImageType, itk.D]
             # print("Rescale Seg with spacing :", output_spacing)
-        else:
+        elif interpolator == "Linear":
             InterpolatorType = itk.LinearInterpolateImageFunction[VectorImageType, itk.D]
             # print("Rescale Scan with spacing :", output_spacing)
 
@@ -510,7 +671,7 @@ def SetSpacingFromRef(file,refFile,outpath=-1):
 
 
 def SetSpacing(filepath,output_spacing=[0.5, 0.5, 0.5],outpath=-1):
-    r"""
+    """
     Set the spacing of the image at the wanted scale 
 
     Parameters
@@ -574,7 +735,7 @@ def SetSpacing(filepath,output_spacing=[0.5, 0.5, 0.5],outpath=-1):
 # #####################################
 
 def RemoveLabel(filepath,outpath,labelToRemove = [1,5,6], label_radius = 4):
-    r"""
+    """
     Remove the unwanted labels from a file and make the other one bigger  
 
     Parameters
@@ -617,7 +778,7 @@ def RemoveLabel(filepath,outpath,labelToRemove = [1,5,6], label_radius = 4):
 # #####################################
 
 def CorrectCSV(filePath, Rcar = [" ", "-1"], Rlab = ["RGo_LGo", "RCo_LCo", "LCo_RCo", "LGo_RGo"]):
-    r"""
+    """
     Remove all the unwanted parts of a fiducial file ".fcsv" :
     - the spaces " "
     - the dash ! "-1"
@@ -647,7 +808,7 @@ def CorrectCSV(filePath, Rcar = [" ", "-1"], Rlab = ["RGo_LGo", "RCo_LCo", "LCo_
                 writer.writerow(row)
 
 def ReadFCSV(filePath):
-    r"""
+    """
     Read fiducial file ".fcsv" and return a liste of landmark dictionnary
 
     Parameters
@@ -681,6 +842,11 @@ def GetImageInfo(filepath):
 
     return ref_size,ref_spacing,ref_origin,ref_direction
 
+def GetSegLabelNbr(filepath):
+    input_seg = sitk.ReadImage(filepath)
+    seg_ar = sitk.GetArrayFromImage(input_seg)
+    return np.max(seg_ar)-np.min(seg_ar) + 1
+
 def CreateNewImage(size,origin,spacing,direction):
     image = sitk.Image(size.tolist(), sitk.sitkInt16)
     image.SetOrigin(origin.tolist())
@@ -690,7 +856,7 @@ def CreateNewImage(size,origin,spacing,direction):
     return image
 
 def GenSeperateLabels(filePath,refImg,outpath,rad,label_lst):
-    r"""
+    """
     Generate a label image from a fiducial file ".fcsv".
     The generated image will match with the reference image. 
 
@@ -733,7 +899,7 @@ def GenSeperateLabels(filePath,refImg,outpath,rad,label_lst):
     writer.Execute(image_3D)
 
 def GenerateUpLowCBLabels(upfilePath,lowfilePath,cbPath,refImg,outpath,rad):
-    r"""
+    """
     Generate a label image from a fiducial file ".fcsv".
     The generated image will match with the reference image. 
 
@@ -806,8 +972,10 @@ def GenerateUpLowCBLabels(upfilePath,lowfilePath,cbPath,refImg,outpath,rad):
     writer.SetFileName(outpath)
     writer.Execute(image_3D)
 
-def GenerateROIfile(lab_scan,outpath,labels = [1],radius=2):
-    r"""
+
+
+def GenerateROIfile(lab_scan,outpath,labels = [1]):
+    """
     Generate a file with the physical coordonate of the center of the ROI in a ".xlsx" file .
     It only go through the selected labels and sperate the RAI by the radius value. 
 
@@ -851,7 +1019,7 @@ def GenerateROIfile(lab_scan,outpath,labels = [1],radius=2):
 
 
 def SaveFiducialFromArray(data,scan_image,outpath,label_list):
-    r"""
+    """
     Generate a fiducial file from an array with label
 
     Parameters

@@ -30,7 +30,7 @@ def main(args):
     print("Loading model", args.load_model)
     net.load_state_dict(torch.load(args.load_model,map_location=device))
     net.eval()
-    net.double()
+    # net.double()
 
     # define pre transforms
     # pre_transforms = createTestTransform(wanted_spacing= args.spacing,outdir=args.out)

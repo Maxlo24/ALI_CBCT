@@ -1,4 +1,5 @@
 from matplotlib.pyplot import step
+from numpy import imag
 from model import *
 from utils import *
 
@@ -30,7 +31,7 @@ def main(args):
         dirDict = {
             "image" : args.dir_scans,
             "landmarks" : args.dir_landmarks,
-            # "label" : args.dir_ROI
+            "ROI" : args.dir_ROI
         }
     )
 
@@ -45,9 +46,9 @@ def main(args):
     train_transforms = CreateALITrainTransform()
     val_transforms = CreateValidationTransform()
 
-    print(len(trainingSet))
+    # print(len(trainingSet))
     # print(trainingSet)
-    print(len(validationSet))
+    # print(len(validationSet))
     # print(validationSet)
 
     # #####################################
@@ -55,34 +56,45 @@ def main(args):
     # #####################################
 
     replace_rate = 1.0
-    train_cache_num = 5
-    val_cache_num = 2
+    train_batch_size = 10
+    val_batch_size = 5
 
-    train_ds = SmartCacheDataset(
+    train_ds = CacheDataset(
         data=trainingSet,
         transform=train_transforms,
         # cache_num=24,
-        # cache_rate=1.0,
-        # num_workers=nbr_workers,
-        replace_rate = replace_rate,
-        cache_num = train_cache_num
-    )
-    train_loader = DataLoader(
-        train_ds, batch_size=train_cache_num, shuffle=True, num_workers=nbr_workers, pin_memory=True
+        cache_rate=1.0,
+        num_workers=nbr_workers,
+        # replace_rate = replace_rate,
+        # cache_num = train_cache_num
     )
 
-    val_ds = SmartCacheDataset(
+    # x = train_transforms(trainingSet[0])
+
+    train_loader = DataLoader(
+        train_ds, batch_size=train_batch_size, shuffle=True, num_workers=nbr_workers, pin_memory=True
+    )
+
+    val_ds = CacheDataset(
         data=validationSet,
         transform=val_transforms, 
         # cache_num=6, 
-        # cache_rate=1.0, 
-        # num_workers=nbr_workers,
-        replace_rate = replace_rate,
-        cache_num = val_cache_num
+        cache_rate=1.0, 
+        num_workers=nbr_workers,
+        # replace_rate = replace_rate,
+        # cache_num = val_cache_num
     )
     val_loader = DataLoader(
-        val_ds, batch_size=val_cache_num, shuffle=False, num_workers=nbr_workers, pin_memory=True
+        val_ds, batch_size=val_batch_size, shuffle=False, num_workers=nbr_workers, pin_memory=True
     )
+
+
+    # for data in datalist:
+    #     transformed_data = train_transforms(data)
+    #     print(data["image"])
+    #     print("image",transformed_data["image"].size())
+    #     print("ROI  ",transformed_data["ROI"].size())
+    #     print("LM   ",transformed_data["landmarks"].size())
 
     # #####################################
     #  Training
@@ -92,6 +104,7 @@ def main(args):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     model = Create_UNETR(
+        input_channel=2,
         label_nbr=label_nbr,
         cropSize=cropSize
     ).to(device)
@@ -119,10 +132,10 @@ def main(args):
     step_to_val = 0
     epoch_loss_values = []
     metric_values = []
-    while global_step < max_iterations:
+    while global_step < 1:
         if (step_to_val >= eval_num) or global_step >= max_iterations:
             dice_val_best, global_step_best = validate(
-                inID="image",
+                inID=["image","ROI"],
                 outID = "landmarks",
                 data_model=model_data,
                 val_loader = val_loader,
@@ -138,7 +151,7 @@ def main(args):
             step_to_val -= eval_num
 
         steps = train(
-            inID="image",
+            inID=["image","ROI"],
             outID = "landmarks",
             data_model=model_data,
             global_step=global_step,
@@ -171,7 +184,7 @@ if __name__ ==  '__main__':
     input_group.add_argument('--dir_data', type=str, help='Input directory with 3D images', default=parser.parse_args().dir_project+'/data')
     input_group.add_argument('--dir_scans', type=str, help='Input directory with the scans',default=parser.parse_args().dir_data+'/Crop/Scans')
     input_group.add_argument('--dir_landmarks', type=str, help='Input directory with the landmarks',default=parser.parse_args().dir_data+'/Crop/Segs')
-    # input_group.add_argument('--dir_ROI', type=str, help='Input directory with the ROI',default=parser.parse_args().dir_data+'/ROI')
+    input_group.add_argument('--dir_ROI', type=str, help='Input directory with the ROI',default=parser.parse_args().dir_data+'/Crop//ROI')
 
     input_group.add_argument('--dir_cash', type=str, help='Output directory of the training',default=parser.parse_args().dir_data+'/Cash')
     input_group.add_argument('--dir_model', type=str, help='Output directory of the training',default=parser.parse_args().dir_data+'/ALI_models')
@@ -183,8 +196,6 @@ if __name__ ==  '__main__':
     input_group.add_argument('-mn', '--model_name', type=str, help='Name of the model', default="ALI_model")
     input_group.add_argument('-nl', '--nbr_label', type=int, help='Number of label', default=19)
     input_group.add_argument('-nw', '--nbr_worker', type=int, help='Number of worker', default=2)
-
-
 
     args = parser.parse_args()
     

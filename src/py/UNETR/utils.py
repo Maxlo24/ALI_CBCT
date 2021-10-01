@@ -2,7 +2,7 @@ import os
 import itk
 import tempfile
 import datetime
-from itk.support.types import Offset
+# from itk.support.types import Offset
 import numpy as np
 import SimpleITK as sitk
 import csv
@@ -196,8 +196,8 @@ def CreateALITrainTransform():
 
     train_transforms = Compose(
         [
-            LoadImaged(keys=["image", "landmarks"]),
-            AddChanneld(keys=["image", "landmarks"]),
+            LoadImaged(keys=["image","ROI","landmarks"]),
+            AddChanneld(keys=["image","ROI","landmarks"]),
             # Spacingd(
             #     keys=["image", "landmarks"],
             #     pixdim=wanted_spacing,
@@ -214,22 +214,22 @@ def CreateALITrainTransform():
             #     overwrite=False
             # ),
             RandFlipd(
-                keys=["image", "landmarks"],
+                keys=["image", "ROI", "landmarks"],
                 spatial_axis=[0],
                 prob=0.10,
             ),
             RandFlipd(
-                keys=["image", "landmarks"],
+                keys=["image", "ROI", "landmarks"],
                 spatial_axis=[1],
                 prob=0.10,
             ),
             RandFlipd(
-                keys=["image", "landmarks"],
+                keys=["image", "ROI", "landmarks"],
                 spatial_axis=[2],
                 prob=0.10,
             ),
             RandRotate90d(
-                keys=["image", "landmarks"],
+                keys=["image", "ROI", "landmarks"],
                 prob=0.10,
                 max_k=3,
             ),
@@ -238,7 +238,7 @@ def CreateALITrainTransform():
                 offsets=0.10,
                 prob=0.50,
             ),
-            ToTensord(keys=["image", "landmarks"]),
+            ToTensord(keys=["image", "ROI", "landmarks"]),
         ]
     )
 
@@ -304,7 +304,7 @@ def SavePrediction(data,input_img, outpath):
    ##    ##     ## ##     ## #### ##    ## #### ##    ##  ######   
  
 def train(inID, outID, data_model, global_step, epoch_loss_values, max_iterations, train_loader, ):
-    
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = data_model["model"]
     model.train()
     epoch_loss = 0
@@ -314,7 +314,10 @@ def train(inID, outID, data_model, global_step, epoch_loss_values, max_iteration
     )
     for step, batch in enumerate(epoch_iterator):
         steps += 1
-        x, y = (batch[inID].cuda(), batch[outID].cuda())
+        # print(batch["image"].size())
+        input = torch.cat([batch[key] for key in inID],1)
+        print(input.size())
+        x, y = (input.to(device), batch[outID].to(device))
         logit_map = model(x)
         loss = data_model["loss_f"](logit_map, y)
         loss.backward()
@@ -337,7 +340,8 @@ def validation(inID, outID,model,cropSize, post_label, post_pred, dice_metric, g
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     with torch.no_grad():
         for step, batch in enumerate(epoch_iterator_val):
-            val_inputs, val_labels = (batch[inID].to(device), batch[outID].to(device))
+            input = torch.cat([batch[key] for key in inID])
+            val_inputs, val_labels = (input.to(device), batch[outID].to(device))
             val_outputs = sliding_window_inference(val_inputs, cropSize, 4, model)
             val_labels_list = decollate_batch(val_labels)
             val_labels_convert = [
@@ -347,7 +351,7 @@ def validation(inID, outID,model,cropSize, post_label, post_pred, dice_metric, g
             val_output_convert = [
                 post_pred(val_pred_tensor) for val_pred_tensor in val_outputs_list
             ]
-            dice = IoU_Dice(y_true_lst=val_output_convert, y_pred_lst=val_labels_convert)
+            # dice = IoU_Dice(y_true_lst=val_output_convert, y_pred_lst=val_labels_convert)
             dice_metric(y_pred=val_output_convert, y=val_labels_convert)
             dice = dice_metric.aggregate().item()
             dice_vals.append(dice)
@@ -511,7 +515,7 @@ def CropImageFromROIfile(image,seg,roi_file,outpath,cropSize,radius=4):
      minimum distance (pixels) between 2 ROI 
     """
 
-    print("Cropping :", os.path.basename(image), os.path.basename(seg))
+    print("Cropping :", os.path.basename(image), os.path.basename(seg),"Based on :",os.path.basename(roi_file))
 
     transform = AddChannel()
 
@@ -523,9 +527,14 @@ def CropImageFromROIfile(image,seg,roi_file,outpath,cropSize,radius=4):
     seg_ar = sitk.GetArrayFromImage(input_seg)
     seg_tens = transform(torch.from_numpy(seg_ar))
 
-    ROI_img = sitk.ReadImage(roi_file) 
+    ROI_img = sitk.ReadImage(roi_file)
     ROI_ar = sitk.GetArrayFromImage(ROI_img)
     # print(np.shape(ROI_ar))
+
+    ROI_img_upscale = SetSpacingFromRef(roi_file,image)
+    ROI_upscale_ar = itk.GetArrayFromImage(ROI_img_upscale)
+    ROI_upscale_tens = transform(torch.from_numpy(ROI_upscale_ar))
+
 
 
     mask = ROI_ar == 1
@@ -566,14 +575,21 @@ def CropImageFromROIfile(image,seg,roi_file,outpath,cropSize,radius=4):
     if not os.path.exists(seg_outpath):
         os.makedirs(seg_outpath)
 
+    ROI_name = os.path.basename(roi_file).split('.')
+    ROI_outpath = os.path.normpath("/".join([outpath, 'ROI', ROI_name[0]]))
+    if not os.path.exists(ROI_outpath):
+        os.makedirs(ROI_outpath)
 
     for i,center_coord in enumerate(crop_centers):
         cropTransform = SpatialCrop(center_coord,cropSize)
         cr_img = cropTransform(img_tens)
         cr_seg = cropTransform(seg_tens)
+        cr_us_ROI = cropTransform(ROI_upscale_tens)
         # print(img.size())
 
         out_img = cr_img.numpy()[0][:]
+        # out_input = np.array([out_img,out_roi])
+        # print(np.shape(out_input))
         output_img = sitk.GetImageFromArray(out_img)
         output_img.SetSpacing(input_img.GetSpacing())
         output_img.SetDirection(input_img.GetDirection())
@@ -585,12 +601,21 @@ def CropImageFromROIfile(image,seg,roi_file,outpath,cropSize,radius=4):
         output_seg.SetDirection(input_seg.GetDirection())
         output_seg.SetOrigin(input_seg.GetOrigin())
 
+        out_roi = cr_us_ROI.numpy()[0][:]
+        output_roi = sitk.GetImageFromArray(out_roi)
+        output_roi.SetSpacing(input_img.GetSpacing())
+        output_roi.SetDirection(input_img.GetDirection())
+        output_roi.SetOrigin(input_img.GetOrigin())
+
         writer = sitk.ImageFileWriter()
         writer.SetFileName(os.path.join(scan_outpath,scan_name[0] + "_" +str(i) + ext))
         writer.Execute(output_img)
 
         writer.SetFileName(os.path.join(seg_outpath,seg_name[0] + "_" +str(i) + ext))
         writer.Execute(output_seg)
+
+        writer.SetFileName(os.path.join(ROI_outpath,ROI_name[0] + "_" +str(i) + ext))
+        writer.Execute(output_roi)
 
 
 

@@ -1,9 +1,9 @@
 from monai.networks.nets import UNETR
 
-def Create_UNETR(label_nbr,cropSize):
+def Create_UNETR(input_channel, label_nbr,cropSize):
 
     model = UNETR(
-        in_channels=1,
+        in_channels=input_channel,
         out_channels=label_nbr,
         img_size=cropSize,
         feature_size=16,
@@ -13,7 +13,7 @@ def Create_UNETR(label_nbr,cropSize):
         pos_embed="perceptron",
         norm_name="instance",
         res_block=True,
-        dropout_rate=0.1,
+        dropout_rate=0.05,
     )
 
     return model

@@ -78,6 +78,7 @@ def main(args):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     model = Create_UNETR(
+        input_channel=1,
         label_nbr=label_nbr,
         cropSize=cropSize
     ).to(device)
@@ -108,7 +109,7 @@ def main(args):
     while global_step < 1:
         if (step_to_val >= eval_num) or global_step >= max_iterations:
             dice_val_best, global_step_best = validate(
-                inID="image",
+                inID=["image"],
                 outID = "landmarks",
                 data_model=model_data,
                 val_loader = val_loader,
@@ -124,7 +125,7 @@ def main(args):
             step_to_val -= eval_num
             global_step +=1
         steps = train(
-            inID="image",
+            inID=["image"],
             outID = "landmarks",
             data_model=model_data,
             global_step=global_step,

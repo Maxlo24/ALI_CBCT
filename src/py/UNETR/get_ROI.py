@@ -50,7 +50,7 @@ if __name__ ==  '__main__':
     parser = argparse.ArgumentParser(description='MD_reader', formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     
     input_group = parser.add_argument_group('Input files')
-    input_group.add_argument('-i','--input_dir', type=str, help='Input directory with 3D images',required=True)
+    input_group.add_argument('-i','--dir', type=str, help='Input directory with 3D images',required=True)
 
     output_params = parser.add_argument_group('Output parameters')
     output_params.add_argument('-o','--out', type=str, help='Output directory', required=True)

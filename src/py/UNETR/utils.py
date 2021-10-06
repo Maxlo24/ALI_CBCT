@@ -244,6 +244,29 @@ def CreateALITrainTransform():
 
     return train_transforms
 
+def CreateALIValidationTransform(wanted_spacing = [0.5,0.5,0.5],outdir="Out"):
+
+    val_transforms = Compose(
+        [
+            LoadImaged(keys=["image", "ROI", "landmarks"]),
+            AddChanneld(keys=["image", "ROI", "landmarks"]),
+            # Spacingd(
+            #     keys=["image", "landmarks"],
+            #     pixdim=wanted_spacing,
+            #     mode=("bilinear", "nearest"),
+            # ),
+            # Orientationd(keys=["image", "landmarks"], axcodes="RAI"),
+            ScaleIntensityd(
+                keys=["image"],minv = 0.0, maxv = 1.0, factor = None
+            ),
+            # CropForegroundd(keys=["image", "landmarks"], source_key="image"),
+            ToTensord(keys=["image", "ROI", "landmarks"]),
+            # CastToTyped(keys=["image", "landmarks"], dtype=[data_type,torch.int16])
+        ]
+    )
+
+    return val_transforms
+
 def CreateValidationTransform(wanted_spacing = [0.5,0.5,0.5],outdir="Out"):
 
     val_transforms = Compose(
@@ -278,6 +301,27 @@ def CreatePredictTransform(data):
     pre_img = torch.from_numpy(pre_transforms(img))
     pre_img = pre_img.type(data_type)
     return pre_img,input_img
+
+def CreateALIPredictTransform(data):
+
+    pre_transforms = Compose(
+        [AddChannel(),ScaleIntensity(minv = 0.0, maxv = 1.0, factor = None)]
+    )
+
+    roi_transform = AddChannel()
+
+    input_img = sitk.ReadImage(data["image"]) 
+    input_roi = sitk.ReadImage(data["ROI"]) 
+
+    img = sitk.GetArrayFromImage(input_img)
+    roi = sitk.GetArrayFromImage(input_roi)
+
+    pre_img = torch.from_numpy(pre_transforms(img))
+    pre_roi = torch.from_numpy(roi_transform(roi))
+
+    input = torch.cat([pre_img,pre_roi])
+    # pre_img = pre_img.type(torch.float)
+    return input,input_img
 
 def SavePrediction(data,input_img, outpath):
 
@@ -316,7 +360,7 @@ def train(inID, outID, data_model, global_step, epoch_loss_values, max_iteration
         steps += 1
         # print(batch["image"].size())
         input = torch.cat([batch[key] for key in inID],1)
-        print(input.size())
+        # print(input.size())
         x, y = (input.to(device), batch[outID].to(device))
         logit_map = model(x)
         loss = data_model["loss_f"](logit_map, y)
@@ -340,7 +384,7 @@ def validation(inID, outID,model,cropSize, post_label, post_pred, dice_metric, g
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     with torch.no_grad():
         for step, batch in enumerate(epoch_iterator_val):
-            input = torch.cat([batch[key] for key in inID])
+            input = torch.cat([batch[key] for key in inID],1)
             val_inputs, val_labels = (input.to(device), batch[outID].to(device))
             val_outputs = sliding_window_inference(val_inputs, cropSize, 4, model)
             val_labels_list = decollate_batch(val_labels)
@@ -537,7 +581,7 @@ def CropImageFromROIfile(image,seg,roi_file,outpath,cropSize,radius=4):
 
 
 
-    mask = ROI_ar == 1
+    mask = ROI_ar >= 1
             
     label_pos = np.array(np.where(mask),dtype='int')
     label_pos = label_pos.tolist()
@@ -923,7 +967,7 @@ def GenSeperateLabels(filePath,refImg,outpath,rad,label_lst):
     writer.SetFileName(outpath)
     writer.Execute(image_3D)
 
-def GenerateUpLowCBLabels(upfilePath,lowfilePath,cbPath,refImg,outpath,rad):
+def GenerateUpLowCBLabels(upfilePath,lowfilePath,cbPath,refImg,outpath,rad,overwrite):
     """
     Generate a label image from a fiducial file ".fcsv".
     The generated image will match with the reference image. 
@@ -979,7 +1023,7 @@ def GenerateUpLowCBLabels(upfilePath,lowfilePath,cbPath,refImg,outpath,rad):
             p_val = image_3D.GetPixel([maskCoord[0][i],maskCoord[1][i],maskCoord[2][i]])
             if p_val == 0:
                 image_3D.SetPixel([maskCoord[0][i],maskCoord[1][i],maskCoord[2][i]],2)
-            elif p_val == 1:
+            elif p_val == 1 and not overwrite:
                 image_3D.SetPixel([maskCoord[0][i],maskCoord[1][i],maskCoord[2][i]],4)
 
     # CB landmarks

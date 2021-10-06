@@ -23,13 +23,14 @@ def main(args):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     net = Create_UNETR(
+        input_channel = 1,
         label_nbr=label_nbr,
         cropSize=cropSize
     ).to(device)
 
-    print("Loading model", args.load_model)
-    net.load_state_dict(torch.load(args.load_model,map_location=device))
-    net.eval()
+    # print("Loading model", args.load_model)
+    # net.load_state_dict(torch.load(args.load_model,map_location=device))
+    # net.eval()
     # net.double()
 
     # define pre transforms
@@ -42,9 +43,9 @@ def main(args):
         for data in datalist:
 
             pred_img,input_img = CreatePredictTransform(data["image"])
-            # print(pred_img, np.shape(pred_img))
+            print(pred_img.size())
             val_inputs = torch.unsqueeze(pred_img, 1)
-            # print(val_inputs, np.shape(val_inputs))
+            print(val_inputs.size())
             val_outputs = val_inputs
             val_outputs = sliding_window_inference(
                 inputs= val_inputs,
@@ -81,12 +82,12 @@ if __name__ == "__main__":
     input_group = parser.add_argument_group('directory')
     input_group.add_argument('--dir', type=str, help='Input directory with the scans',default=None, required=True)
     input_group.add_argument('--load_model', type=str, help='Path of the model', default=None, required=True)
-    input_group.add_argument('--out', type=str, help='Output directory with the landmarks',default=None)
+    # input_group.add_argument('--out', type=str, help='Output directory with the landmarks',default=None)
 
     
     input_group.add_argument('-sp', '--spacing', nargs="+", type=float, help='Wanted output x spacing', default=[0.5,0.5,0.5])
     input_group.add_argument('-cs', '--crop_size', nargs="+", type=float, help='Wanted crop size', default=[64,64,64])
-    input_group.add_argument('-nl', '--nbr_label', type=int, help='Number of label', default=19)
+    input_group.add_argument('-nl', '--nbr_label', type=int, help='Number of label', default=5)
     input_group.add_argument('-nw', '--nbr_worker', type=int, help='Number of worker', default=1)
 
     args = parser.parse_args()

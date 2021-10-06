@@ -5,9 +5,6 @@ import sys
 import os
 
 
-
-
-
 def main(args):
 	img_fn_array = []
 	outpath = os.path.normpath("/".join([args.out]))

@@ -44,7 +44,7 @@ def main(args):
 
 
     train_transforms = CreateALITrainTransform()
-    val_transforms = CreateValidationTransform()
+    val_transforms = CreateALIValidationTransform()
 
     # print(len(trainingSet))
     # print(trainingSet)
@@ -132,7 +132,7 @@ def main(args):
     step_to_val = 0
     epoch_loss_values = []
     metric_values = []
-    while global_step < 1:
+    while global_step < max_iterations:
         if (step_to_val >= eval_num) or global_step >= max_iterations:
             dice_val_best, global_step_best = validate(
                 inID=["image","ROI"],
@@ -161,6 +161,21 @@ def main(args):
         )
         global_step += steps
         step_to_val += steps
+
+    dice_val_best, global_step_best = validate(
+        inID=["image","ROI"],
+        outID = "landmarks",
+        data_model=model_data,
+        val_loader = val_loader,
+        cropSize=cropSize,
+        global_step=global_step,
+        metric_values=metric_values,
+        dice_val_best=dice_val_best,
+        global_step_best=global_step_best,
+        dice_metric=dice_metric,
+        post_pred=post_pred,
+        post_label=post_label
+    )
 
     print(
     f"train completed, best_metric: {dice_val_best:.4f} "
@@ -194,7 +209,7 @@ if __name__ ==  '__main__':
     input_group.add_argument('-mi', '--max_iterations', type=int, help='Number of training epocs', default=25000)
     input_group.add_argument('-tp', '--test_percentage', type=int, help='Percentage of data to keep for validation', default=20)
     input_group.add_argument('-mn', '--model_name', type=str, help='Name of the model', default="ALI_model")
-    input_group.add_argument('-nl', '--nbr_label', type=int, help='Number of label', default=19)
+    input_group.add_argument('-nl', '--nbr_label', type=int, help='Number of label', default=4)
     input_group.add_argument('-nw', '--nbr_worker', type=int, help='Number of worker', default=2)
 
     args = parser.parse_args()

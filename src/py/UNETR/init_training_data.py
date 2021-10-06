@@ -74,6 +74,9 @@ def main(args):
     if not os.path.exists(CB_LMOutpath) and "cb" in args.seperate_landmark:
         os.makedirs(CB_LMOutpath)
 
+    if not os.path.exists(Mixed_LMOutpath) and "ml" in args.seperate_landmark:
+        os.makedirs(Mixed_LMOutpath)
+
     if not os.path.exists(Mixed_LMOutpath) and args.mixed_landmark:
         os.makedirs(Mixed_LMOutpath)
 
@@ -86,6 +89,7 @@ def main(args):
         print('       Scan number : ',len(scan_lst))
         print('       Seg number : ',len(seg_lst))
         print('       _U.fcsv number : ',len(U_fcsv_lst))
+        print('       _L.fcsv number : ',len(L_fcsv_lst))
         print('       _L.fcsv number : ',len(L_fcsv_lst))
         
         raise 
@@ -118,8 +122,11 @@ def main(args):
         if "cb" in args.seperate_landmark:
             GenSeperateLabels(CB_lm["file"],scan["out"],os.path.normpath("/".join([CB_lm["out"],scan_basename.replace("scan","CB_LM" )])),args.label_radius,CB_labels)
 
+        if "ml" in args.seperate_landmark:
+            GenerateUpLowCBLabels(U_lm["file"],L_lm["file"],CB_lm["file"],scan["out"],os.path.normpath("/".join([Mixed_LMOutpath,scan_basename.replace("scan","M_LM" )])),args.label_radius, overwrite=True)
+
         if args.mixed_landmark:
-            GenerateUpLowCBLabels(U_lm["file"],L_lm["file"],CB_lm["file"],scan["out"],os.path.normpath("/".join([Mixed_LMOutpath,scan_basename.replace("scan","M_LM" )])),args.label_radius)
+            GenerateUpLowCBLabels(U_lm["file"],L_lm["file"],CB_lm["file"],scan["out"],os.path.normpath("/".join([Mixed_LMOutpath,scan_basename.replace("scan","M_LM" )])),args.label_radius,overwrite=False)
         
         # RemoveLabel(seg["img"], seg["out"], args.label_to_remove)
         # # SetSpacing(seg["out"],args.spacing,seg["out"])
@@ -137,12 +144,13 @@ if __name__ ==  '__main__':
     output_params.add_argument('-o','--out', type=str, help='Output directory', required=True)
 
     input_params = input_group.add_mutually_exclusive_group(required=True)
-    input_params.add_argument('-slm','--seperate_landmark',nargs="+",type=str,help="Prepare the data for uper and/or lower landmark training (ex: u l cb)", default=[])
+    input_params.add_argument('-slm','--seperate_landmark',nargs="+",type=str,help="Prepare the data for uper and/or lower landmark training (ex: u l cb ml)", default=[])
     # input_params.add_argument('-llm','--lower_landmark',action="store_true",help="Organise the data for uper landmark training")
     input_params.add_argument('-mlm','--mixed_landmark',action="store_true",help="Prepare the data for the low resolution uper and lower landmark training")
+    # input_params.add_argument('-mlm','--mixed_landmark',action="store_true",help="Prepare the data for the low resolution uper and lower landmark training")
 
     if parser.parse_args().seperate_landmark:
-        spacing = [0.3,0.3,0.3]
+        spacing = [0.5,0.5,0.5]
         radius = 2
     elif parser.parse_args().mixed_landmark:
         spacing = [2,2,2]

@@ -35,6 +35,9 @@ def main(args):
         baseName = os.path.basename(lm_scan)
         baseName = baseName.split("or")[0]
 
+        if "m" in args.select_region:
+            GenerateROIfile(lm_scan,os.path.join(U_ROIOutpath,baseName+"M_ROI.nii.gz"),[1,4],args.box_dist)
+            
         if "u" in args.select_region:
             GenerateROIfile(lm_scan,os.path.join(U_ROIOutpath,baseName+"U_ROI.nii.gz"),[1,4],args.box_dist)
 
@@ -55,7 +58,7 @@ if __name__ ==  '__main__':
     output_params = parser.add_argument_group('Output parameters')
     output_params.add_argument('-o','--out', type=str, help='Output directory', required=True)
 
-    input_group.add_argument('-reg','--select_region',nargs="+",type=str,help="Prepare the data for uper and/or lower landmark training (ex: u l cb)", default=[])
+    input_group.add_argument('-reg','--select_region',nargs="+",type=str,help="Prepare the data for uper and/or lower landmark training (ex: m u l cb)", default=[])
 
     input_group.add_argument('-bd', '--box_dist', type=int, help='distance between 2 ROI', default=5)
     

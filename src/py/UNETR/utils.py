@@ -42,7 +42,8 @@ from monai.transforms import (
     RandCropByLabelClassesd,
     Lambdad,
     CastToTyped,
-    SpatialCrop
+    SpatialCrop,
+    BorderPad
 )
 
 from monai.config import print_config
@@ -310,17 +311,38 @@ def CreateALIPredictTransform(data):
 
     roi_transform = AddChannel()
 
-    input_img = sitk.ReadImage(data["image"]) 
-    input_roi = sitk.ReadImage(data["ROI"]) 
+    # input_img = sitk.ReadImage(data["image"]) 
+    # input_roi = sitk.ReadImage(data["ROI"]) 
 
-    img = sitk.GetArrayFromImage(input_img)
-    roi = sitk.GetArrayFromImage(input_roi)
+    # img = sitk.GetArrayFromImage(input_img)
+    # roi = sitk.GetArrayFromImage(input_roi)
 
-    pre_img = torch.from_numpy(pre_transforms(img))
-    pre_roi = torch.from_numpy(roi_transform(roi))
+    # pre_img = torch.from_numpy(pre_transforms(img))
+    # pre_roi = torch.from_numpy(roi_transform(roi))
 
-    input = torch.cat([pre_img,pre_roi])
+    # input = torch.cat([pre_img,pre_roi])
     # pre_img = pre_img.type(torch.float)
+
+    input_img = sitk.ReadImage(data["image"])
+    img = sitk.GetArrayFromImage(input_img)
+    img_tens = pre_transforms(torch.from_numpy(img))
+
+    # print(img_tens.size())
+
+    # ROI_img = sitk.ReadImage(data["ROI"])
+    # ROI_ar = sitk.GetArrayFromImage(ROI_img)
+    # print(np.shape(ROI_ar))
+
+    ROI_img_upscale = SetSpacingFromRef(data["ROI"],data["image"])
+    ROI_upscale_ar = itk.GetArrayFromImage(ROI_img_upscale)
+    ROI_upscale_tens = roi_transform(torch.from_numpy(ROI_upscale_ar))
+
+    # print(ROI_upscale_tens.size())
+
+    input = torch.cat([img_tens,ROI_upscale_tens])
+
+    # print(input.size())
+
     return input,input_img
 
 def SavePrediction(data,input_img, outpath):
@@ -561,7 +583,9 @@ def CropImageFromROIfile(image,seg,roi_file,outpath,cropSize,radius=4):
 
     print("Cropping :", os.path.basename(image), os.path.basename(seg),"Based on :",os.path.basename(roi_file))
 
-    transform = AddChannel()
+    crop = np.array(cropSize)/2
+    pad_offset = crop.astype(np.int16)
+    transform = Compose([AddChannel(),BorderPad(spatial_border=pad_offset.tolist())])
 
     input_img = sitk.ReadImage(image)
     img_ar = sitk.GetArrayFromImage(input_img)
@@ -586,7 +610,7 @@ def CropImageFromROIfile(image,seg,roi_file,outpath,cropSize,radius=4):
     label_pos = np.array(np.where(mask),dtype='int')
     label_pos = label_pos.tolist()
 
-    offset = np.array([2,1,1])
+    offset = np.array([2,1,1]) 
 
     ROI_coord = [np.array([label_pos[0][0],label_pos[1][0],label_pos[2][0]]) + offset]
     for i in range(1,len(label_pos[0])):
@@ -625,7 +649,7 @@ def CropImageFromROIfile(image,seg,roi_file,outpath,cropSize,radius=4):
         os.makedirs(ROI_outpath)
 
     for i,center_coord in enumerate(crop_centers):
-        cropTransform = SpatialCrop(center_coord,cropSize)
+        cropTransform = SpatialCrop(center_coord+ pad_offset,cropSize)
         cr_img = cropTransform(img_tens)
         cr_seg = cropTransform(seg_tens)
         cr_us_ROI = cropTransform(ROI_upscale_tens)

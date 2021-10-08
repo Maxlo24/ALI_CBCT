@@ -80,32 +80,38 @@ def main(args):
 
         environement_lst.append(env)
 
-    # agent_lst = []
-    # for fcsv in args.landmarks:
-    #     for label in Label_dic[fcsv]:
-    #         print("Generating Agent for the lamdmark :" , label)
-    #         agt = TrainingAgent(
-    #             targeted_landmark=label,
-    #             models=[DRLnet(),DRLnet(),DRLnet()],
-    #             FOV=args.agent_FOV,
-    #             verbose=True
-    #         )
-    #         agent_lst.append(agt)
+    agent_lst = []
+    for fcsv in args.landmarks:
+        for label in Label_dic[fcsv]:
+            print("Generating Agent for the lamdmark :" , label)
+            agt = TrainingAgent(
+                targeted_landmark=label,
+                # models=DRLnet,
+                FOV=args.agent_FOV,
+                verbose=True
+            )
+            agent_lst.append(agt)
 
-    # a = agent_lst[0]
+
+    
+
+    # a = agent_lst[1]
     # # a = TrainingAgent()
     # env = environement_lst[0]
 
-    # a.PrintBrain()
-
     # a.SetEnvironement(env)
-    # a.SetRandomPos()
 
     # a.GoToScale(1)
     # a.SetRandomPos()
 
-    # # for i in range(5):
-    # #     a.Move(1)
+    # for i in range(100):
+    #     a.Move(0)
+
+    # img = a.GetState()
+    # output = sitk.GetImageFromArray(img[0][:])
+    # writer = sitk.ImageFileWriter()
+    # writer.SetFileName("test.nii.gz")
+    # writer.Execute(output)
 
     # if not os.path.exists("crop"):
     #     os.makedirs("crop")
@@ -153,7 +159,7 @@ if __name__ ==  '__main__':
 
     input_group.add_argument('-lm','--landmarks',nargs="+",type=str,help="Prepare the data for uper and/or lower landmark training (ex: u l cb)", default=["cb"])
     input_group.add_argument('-sp', '--spacing', nargs="+", type=float, help='Spacing of the different scales', default=[2,1,0.3])
-    input_group.add_argument('-fov', '--agent_FOV', nargs="+", type=float, help='Wanted crop size', default=[32,32,32])
+    input_group.add_argument('-fov', '--agent_FOV', nargs="+", type=float, help='Wanted crop size', default=[64,64,64])
     input_group.add_argument('-mi', '--max_iterations', type=int, help='Number of training epocs', default=25000)
     input_group.add_argument('-tp', '--test_percentage', type=int, help='Percentage of data to keep for validation', default=20)
     input_group.add_argument('-mn', '--model_name', type=str, help='Name of the model', default="ALI_model")

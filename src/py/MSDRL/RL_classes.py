@@ -1,3 +1,4 @@
+from collections import deque
 from typing import Sequence, Tuple, Union
 import sys
 
@@ -92,7 +93,6 @@ class Environement :
             landmark_fiducial : path of the fiducial list linked with the image,
         """
         self.padding = padding.astype(np.int16)
-        print(self.padding)
         self.LoadImages(images_path)
         self.ResetLandmarks()
 
@@ -151,7 +151,7 @@ class Environement :
         return np.linalg.norm(position-label_pos)**2
 
     def GetZone(self,dim,center,crop_size):
-        cropTransform = SpatialCrop(center.tolist(),crop_size)
+        cropTransform = SpatialCrop(center.tolist() + self.padding,crop_size)
         crop = cropTransform(self.data[dim])
         return crop
 
@@ -165,13 +165,13 @@ class TrainingAgent :
     def __init__(
         self,
         targeted_landmark,
-        models,
+        models = DRLnet,
         FOV = [32,32,32],
         gamma = 0.9,
         epsilon = 0.01,
         lr = 0.0005,
         batch_size = 10,
-        max_mem_size = 100000,
+        max_mem_size = 1000,
         exp_end = 0.05,
         exp_dec = 5e-4,
         nbr_of_action = 6,
@@ -183,7 +183,7 @@ class TrainingAgent :
         Args:
             environement : Environement in wich the target will progress,
             targeted_landmark : name of the landmark to target,
-            models : List of network to train on each scale,
+            models : Type of network to train on each scale,
             FOV = [32,32,32] : region in the scan seen by the agent,
             gamma: Discount factor.
             epsilon: .
@@ -212,36 +212,44 @@ class TrainingAgent :
 
         self.movement_id = ["Up", "Down", "Back", "Front", "Left", "Right"]
 
-
         #Brain
         self.gamma = gamma
         self.epsilon = epsilon
         self.lr = lr
         self.batch_size = batch_size
-        self.max_mem_size = max_mem_size
+        # self.max_mem_size = max_mem_size
         self.exp_eps = 1.0
         self.exp_end = exp_end
         self.exp_dec = exp_dec
         self.loss_fn = nn.MSELoss()
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-        self.models = models
-        self.active_network = models[self.scale_state]
+        self.models = [
+            {"pred" : models(),"target" : models()},
+            {"pred" : models(),"target" : models()},
+            {"pred" : models(),"target" : models()},
+        ]
+
+        self.active_network = self.models[self.scale_state]
 
         optimizers = []
-        for model in models:
-            model.to(self.device)
-            optimizer = optim.Adam(model.parameters(), lr=self.lr)
+
+        for model in self.models:
+            model["pred"].to(self.device)
+            model["target"].to(self.device)
+            optimizer = optim.Adam(model["pred"].parameters(), lr=self.lr)
             optimizers.append(optimizer)
         self.optimizers = optimizers
 
-
         # Memory
+        self.memory = deque(maxlen=max_mem_size)
         # self.mem_size = max_mem_size
         # self.mem_ctr = 0
         # self.state_mem = np.zeros((self.mem_size, *self.FOV), dtype=np.float32)
         # self.action_mem = np.zeros(self.mem_size, dtype=np.int32)
         # self.reward_mem = np.zeros(self.mem_size, dtype=np.float32)
+    def Remember(self,state,action,reward,new_state):
+        self.memory.append([state, action, reward, new_state])
 
     def SetEnvironement(self, environement : Environement): self.environement = environement
 
@@ -253,9 +261,10 @@ class TrainingAgent :
     def SetRandomPos(self):
         if self.scale_state == 0:
             rand_coord = np.random.randint(1, self.environement.GetSize(self.scale_state), dtype=np.int16)
+            rand_coord = self.environement.GetLandmarkPos(self.scale_state,self.target)
         else:
             rand_coord = np.random.randint([1,1,1], self.start_pos_radius*2) - self.start_pos_radius
-            rand_coord = self.environement.GetLandmarkPos(self.scale_state,self.target) + rand_coord
+            rand_coord = self.environement.GetLandmarkPos(self.scale_state,self.target) #+ rand_coord
             rand_coord = np.where(rand_coord<0, 0, rand_coord)
             rand_coord = rand_coord.astype(np.int16)
 
@@ -305,6 +314,9 @@ class TrainingAgent :
 
         if self.exp_eps > self.exp_end: self.exp_eps-=self.exp_dec
         return action
+
+    def replay(self):
+        samples = random.sample(self.memory, self.batch_size)
 
     def Train(self,max_steps):
         print("Training :")

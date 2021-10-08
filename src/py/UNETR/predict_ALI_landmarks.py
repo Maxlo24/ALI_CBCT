@@ -41,7 +41,7 @@ def main(args):
     print("Loading model", args.load_model)
     net.load_state_dict(torch.load(args.load_model,map_location=device))
     net.eval()
-    net.double()
+    # net.double()
 
     # define pre transforms
     # pre_transforms = createTestTransform(wanted_spacing= args.spacing,outdir=args.out)
@@ -59,15 +59,16 @@ def main(args):
             # print(val_inputs.size())
             # # print(val_inputs, np.shape(val_inputs))
             # val_outputs = pred_img
-            # val_outputs = sliding_window_inference(
-            #     inputs= pred_img,
-            #     roi_size = cropSize, 
-            #     sw_batch_size= nbr_workers, 
-            #     predictor= net, 
-            #     overlap=0.8
-            # )
-            val_outputs = net(val_inputs)
-            print(val_outputs.size())
+            val_inputs.to(device)
+            val_outputs = sliding_window_inference(
+                inputs= val_inputs,
+                roi_size = cropSize, 
+                sw_batch_size= nbr_workers, 
+                predictor= net, 
+                overlap=0.8
+            )
+            # val_outputs = net(val_inputs)
+            # # print(val_outputs.size())
             out_img = torch.argmax(val_outputs, dim=1).detach().cpu()
             out_img = out_img.type(torch.int16)
             # print(out_img,np.shape(out_img))
@@ -106,7 +107,7 @@ if __name__ == "__main__":
     
     input_group.add_argument('-sp', '--spacing', nargs="+", type=float, help='Wanted output x spacing', default=[2,2,2])
     input_group.add_argument('-cs', '--crop_size', nargs="+", type=float, help='Wanted crop size', default=[64,64,64])
-    input_group.add_argument('-nl', '--nbr_label', type=int, help='Number of label', default=19)
+    input_group.add_argument('-nl', '--nbr_label', type=int, help='Number of label', default=4)
     input_group.add_argument('-nw', '--nbr_worker', type=int, help='Number of worker', default=1)
 
     args = parser.parse_args()

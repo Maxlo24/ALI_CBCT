@@ -17,7 +17,7 @@ def main(args):
     L_LMOutpath = os.path.normpath("/".join([args.out,"L_Landmark"]))
     CB_LMOutpath = os.path.normpath("/".join([args.out,"CB_Landmark"]))
 
-    Mixed_LMOutpath = os.path.normpath("/".join([args.out,"Mixed_Landmarks"]))
+    Mixed_LMOutpath = os.path.normpath("/".join([args.out,"Mixed_Landmarks_"+str(args.spacing[0])]))
 
     print("Reading folder : ", args.input_dir)
     		

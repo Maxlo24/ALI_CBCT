@@ -1,8 +1,5 @@
 
 
-from sklearn.model_selection import train_test_split
-
-from classes import *
 from utils import *
 
 import glob
@@ -22,75 +19,7 @@ def main(args):
     spacing_lst = args.spacing
     # FOV = args.agent_FOV
 
-    scan_lst = []
-    for spacing in spacing_lst:
-       scan_lst.append([])
 
-    U_fcsv_lst = []
-    L_fcsv_lst = []
-    CB_fcsv_lst = []
-    
-
-    print("Reading folder : ", args.dir_scans)
-    print("Selected spacings : ", args.spacing)
-    		
-    normpath = os.path.normpath("/".join([args.dir_scans, '**', '']))
-    for img_fn in sorted(glob.iglob(normpath, recursive=True)):
-        #  print(img_fn)
-        if os.path.isfile(img_fn) and True in [ext in img_fn for ext in [".nrrd", ".nrrd.gz", ".nii", ".nii.gz", ".gipl", ".gipl.gz"]]:
-            baseName = os.path.basename(img_fn)
-            if True in [scan in baseName for scan in ["scan","Scan"]]:
-                for i,spacing in enumerate(spacing_lst):
-                    if "_"+str(spacing) in baseName:
-                        scan_lst[i].append(img_fn)
-
-        if os.path.isfile(img_fn) and ".fcsv" in img_fn:
-            baseName = os.path.basename(img_fn)
-            if "_U." in baseName :
-                U_fcsv_lst.append(img_fn)
-            elif "_L." in baseName :
-                L_fcsv_lst.append(img_fn)
-            elif "_CB." in baseName :
-                CB_fcsv_lst.append(img_fn)
-
-
-    data_lst = []
-    for n in range(0,len(scan_lst[0])):
-        data = {}
-
-        images_path = []
-        for i,spacing in enumerate(spacing_lst):
-            images_path.append(scan_lst[i][n])
-        data["images"] = images_path
-        data["u"] = U_fcsv_lst[n]
-        data["l"] = L_fcsv_lst[n]
-        data["cb"] = CB_fcsv_lst[n]
-
-        data_lst.append(data)
-
-    # print(data_lst)
-
-    
-    environement_lst = []
-    for data in data_lst:
-        print("Generating Environement for :" , os.path.dirname(data["images"][0]))
-        env = Environement(data["images"],np.array(args.agent_FOV)/2)
-        for fcsv in args.landmarks:
-            env.LoadLandmarks(data[fcsv])
-
-        environement_lst.append(env)
-
-    agent_lst = []
-    for fcsv in args.landmarks:
-        for label in Label_dic[fcsv]:
-            print("Generating Agent for the lamdmark :" , label)
-            agt = TrainingAgent(
-                targeted_landmark=label,
-                # models=DRLnet,
-                FOV=args.agent_FOV,
-                verbose=True
-            )
-            agent_lst.append(agt)
 
 
     

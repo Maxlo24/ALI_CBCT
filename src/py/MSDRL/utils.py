@@ -3,13 +3,95 @@ import numpy as np
 import SimpleITK as sitk
 import itk
 import os
+import glob
+
+from GlobalVar import*
+from Models_class import DRLnet
+from Agents_class import (
+    DQNAgent,
+    RLAgent
+)
+from Environement_class import Environement
+from TrainingManager_class import TrainingMaster
+
+def GetEnvironementsAgents(dir_scans,spacing_lst,agent_type,agent_FOV,landmarks):
+
+    scan_lst = []
+    for spacing in spacing_lst:
+       scan_lst.append([])
+
+    U_fcsv_lst = []
+    L_fcsv_lst = []
+    CB_fcsv_lst = []
+    
+
+    print("Reading folder : ", dir_scans)
+    print("Selected spacings : ", spacing_lst)
+    		
+    normpath = os.path.normpath("/".join([dir_scans, '**', '']))
+    for img_fn in sorted(glob.iglob(normpath, recursive=True)):
+        #  print(img_fn)
+        if os.path.isfile(img_fn) and True in [ext in img_fn for ext in [".nrrd", ".nrrd.gz", ".nii", ".nii.gz", ".gipl", ".gipl.gz"]]:
+            baseName = os.path.basename(img_fn)
+            if True in [scan in baseName for scan in ["scan","Scan"]]:
+                for i,spacing in enumerate(spacing_lst):
+                    if "_"+str(spacing) in baseName:
+                        scan_lst[i].append(img_fn)
+
+        if os.path.isfile(img_fn) and ".fcsv" in img_fn:
+            baseName = os.path.basename(img_fn)
+            if "_U." in baseName :
+                U_fcsv_lst.append(img_fn)
+            elif "_L." in baseName :
+                L_fcsv_lst.append(img_fn)
+            elif "_CB." in baseName :
+                CB_fcsv_lst.append(img_fn)
 
 
-Label_dic = {
-    "u" : ['PNS','ANS','A','UR6apex','UR3apex','U1apex','UL3apex','UL6apex','UR6d','UR6m','UR3tip','UItip','UL3tip','UL6m','UL6d'],
-    "l" : ['RCo','RGo','LR6apex','LR7apex','L1apex','Me','Gn','Pog','B','LL6apex','LL7apex','LGo','LCo','LR6d','LR6m','LItip','LL6m','LL6d'],
-    "cb" :['Ba','S','N']
-}
+    data_lst = []
+    for n in range(0,len(scan_lst[0])):
+        data = {}
+
+        images_path = []
+        for i,spacing in enumerate(spacing_lst):
+            images_path.append(scan_lst[i][n])
+        data["images"] = images_path
+        data["u"] = U_fcsv_lst[n]
+        data["l"] = L_fcsv_lst[n]
+        data["cb"] = CB_fcsv_lst[n]
+
+        data_lst.append(data)
+
+    # print(data_lst)
+
+    
+    environement_lst = []
+    for data in data_lst:
+        print("Generating Environement for :" , os.path.dirname(data["images"][0]))
+        env = Environement(data["images"],np.array(agent_FOV)/2)
+        for fcsv in landmarks:
+            env.LoadLandmarks(data[fcsv])
+
+        environement_lst.append(env)
+
+    agent_lst = []
+    for fcsv in landmarks:
+        for label in LABELS[fcsv]:
+            print("Generating Agent for the lamdmark :" , label)
+            agt = agent_type(
+                targeted_landmark=label,
+                # models=DRLnet,
+                FOV=agent_FOV,
+                verbose = True
+            )
+            agent_lst.append(agt)
+
+    print("Number of Environement generated :",len(environement_lst))
+    print("Number of Agent generated :",len(agent_lst))
+
+    return environement_lst,agent_lst
+
+
 
 def ResampleImage(input,size,spacing,origin,direction,interpolator,VectorImageType):
         ResampleType = itk.ResampleImageFilter[VectorImageType, VectorImageType]
@@ -119,21 +201,4 @@ def CorrectCSV(filePath, Rcar = [" ", "-1"], Rlab = ["RGo_LGo", "RCo_LCo", "LCo_
                 writer.writerow(row)
 
 
-def ReadFCSV(filePath):
-    """
-    Read fiducial file ".fcsv" and return a liste of landmark dictionnary
 
-    Parameters
-    ----------
-    filePath
-     path of the .fcsv file 
-    """
-    Landmark_lst = []
-    with open(filePath, mode='r') as csv_file:
-        csv_reader = csv.reader(csv_file)
-        for row in csv_reader:
-            if "#" not in row[0]:
-                landmark = {}
-                landmark["id"], landmark["x"], landmark["y"], landmark["z"], landmark["label"] = row[0], row[1], row[2], row[3], row[11]
-                Landmark_lst.append(landmark)
-    return Landmark_lst

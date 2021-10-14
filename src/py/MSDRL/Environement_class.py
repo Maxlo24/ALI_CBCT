@@ -4,6 +4,7 @@ import csv
 import SimpleITK as sitk
 import numpy as np
 import torch
+import os
 
 # ----- MONAI ------
 # from monai.losses import DiceCELoss
@@ -39,6 +40,8 @@ class Environement :
         self.verbose = verbose
 
     def LoadImages(self,images_path):
+        self.images_path = images_path
+
         transform = Compose([AddChannel(),BorderPad(spatial_border=self.padding.tolist()),ScaleIntensity(minv = 0.0, maxv = 1.0, factor = None)])
 
         data = []
@@ -84,6 +87,14 @@ class Environement :
     def GetSpacing(self,dim):
         return self.spacings[dim]
 
+    def LandmarkIsPresent(self,landmark):
+        if landmark in self.dim_landmarks[0].keys():
+            return True
+        else:
+            if self.verbose:
+                print(landmark, "missing in patient ", os.path.basename(os.path.dirname(self.images_path[0])))
+            return False
+
     def GetLandmarkPos(self,dim,landmark):
         return self.dim_landmarks[dim][landmark]
 
@@ -95,6 +106,15 @@ class Environement :
         cropTransform = SpatialCrop(center.tolist() + self.padding,crop_size)
         crop = cropTransform(self.data[dim])
         return crop
+
+    def GetRewardLst(self,dim,position,target):
+        reward_lst = []
+        agent_dist = self.GetL2DistFromLandmark(dim,position,target)
+        for move in MOVEMENT_MATRIX_26:
+            neighbor_coord = position + move
+            dist_from_lm = self.GetL2DistFromLandmark(dim,neighbor_coord,target)
+            reward_lst.append(agent_dist - dist_from_lm)
+        return reward_lst
 
     def GetRandomSample(self,dim,target,radius,crop_size):
         sample = {}
@@ -116,25 +136,16 @@ class Environement :
         sample["state"] = self.GetZone(dim,rand_coord,crop_size)
         # sample["size"] = self.GetZone(dim,rand_coord,crop_size).size()
         # sample["coord"] = rand_coord
-        # sample["target"] = best_action
-        sample["target"] = torch.from_numpy(GetTargetOutputFromAction(best_action))
+        sample["target"] = best_action
+        # sample["target"] = torch.from_numpy(GetTargetOutputFromAction(best_action))
         # sample["reward"] = np.where()
 
         return sample
 
-    def GetRewardLst(self,dim,position,target):
-        reward_lst = []
-        agent_dist = self.GetL2DistFromLandmark(dim,position,target)
-        for move in MOVEMENT_MATRIX:
-            neighbor_coord = position + move
-            dist_from_lm = self.GetL2DistFromLandmark(dim,neighbor_coord,target)
-            reward_lst.append(agent_dist - dist_from_lm)
-        return reward_lst
-
-    def GetBestMove(self):
-        best_action = np.argmax(self.GetRewardLst())
+    def GetBestMove(self,dim,position,target):
+        best_action = np.argmax(self.GetRewardLst(dim,position,target))
         if self.verbose:
-            print("Best move is ", MOVEMENT_MATRIX[best_action])
+            print("Best move is ", MOVEMENT_MATRIX_26[best_action])
         return best_action
 
     

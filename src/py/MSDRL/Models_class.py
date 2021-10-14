@@ -7,11 +7,7 @@ import os
 
 from torch import nn
 from tqdm.std import tqdm
-from monai.metrics import DiceMetric
 # from torchvision import models
-
-
-
 
 class Brain:
     def __init__(
@@ -20,6 +16,7 @@ class Brain:
         network_nbr,
         model_dir,
         model_name,
+        device, 
         in_channels = 1,
         out_channels = 6,
         learning_rate = 1e-4,
@@ -27,38 +24,50 @@ class Brain:
         verbose = False
     ) -> None:
         self.verbose = verbose
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.device = device
         self.batch_size = batch_size
 
         networks = []
         epoch_losses = []
-        validation_dices = []
+        validation_metrics = []
         models_dirs = []
+        optimizers = []
         for n in range(network_nbr):
             net = network_type(
                 in_channels = in_channels,
                 out_channels = out_channels,
-                lr = learning_rate,
             )
             net.to(self.device)
             networks.append(net)
+            optimizers.append(optim.Adam(net.parameters(), lr=learning_rate))
             epoch_losses.append([])
-            validation_dices.append([])
+            validation_metrics.append([])
             dir_path = os.path.join(model_dir,str(n))
             if not os.path.exists(dir_path):
                 os.makedirs(dir_path)
             models_dirs.append(dir_path)
 
+        self.loss_fn = nn.CrossEntropyLoss()
+        self.optimizers = optimizers
+
         self.networks = networks
+        # self.networks = [networks[0]]
         self.epoch_losses = epoch_losses
-        self.validation_dices = validation_dices
-        self.best_dices = [0,0,0]
+        self.validation_metrics = validation_metrics
+        self.best_metrics = [9999,9999,9999]
         self.global_epoch = [0,0,0]
         self.best_epoch = [0,0,0]
 
         self.model_dirs = models_dirs
         self.model_name = model_name
 
+    def Predict(self,dim,state):
+        network = self.networks[dim]
+        network.eval()
+        with torch.no_grad():
+            input = torch.unsqueeze(state,0)
+            x = network(input)
+        return torch.argmax(x)
 
     def Train(self,data):
         # print(data)
@@ -73,15 +82,16 @@ class Brain:
             epoch_iterator = tqdm(
                 data[n], desc="Training (X / X Steps) (loss=X.X)", dynamic_ncols=True
             )
+            optimizer = self.optimizers[n]
             for step, batch in enumerate(epoch_iterator):
-                
-                # print(batch["state"].size(),batch["target"].size())
+                optimizer.zero_grad()
                 input,target = batch["state"].to(self.device),batch["target"].to(self.device)
 
-                x = network(input)
-                loss = network.loss_fn(x,target)
+                y = network(input) 
+                # print(batch["state"].size(),y.size(),batch["target"].size())
+                loss = self.loss_fn(y,target)
                 loss.backward()
-                network.optimizer.step()
+                optimizer.step()
                 epoch_loss +=loss.item()
                 epoch_iterator.set_description(
                     "Training (%d / %d Scans) (loss=%2.5f)" % ((step+1)*self.batch_size, self.batch_size*len(data[n]), loss)
@@ -92,8 +102,6 @@ class Brain:
             self.epoch_losses[n].append(epoch_loss)
             if self.verbose:
                 print("Average epoch Loss :",epoch_loss)
-
-
 
     def Validate(self,data):
         # print(data)
@@ -112,8 +120,8 @@ class Brain:
                     # print(batch["state"].size(),batch["target"].size())
                     input,target = batch["state"].to(self.device),batch["target"].to(self.device)
 
-                    x = network(input)
-                    loss = network.loss_fn(x,target)
+                    y = network(input)
+                    loss = self.loss_fn(y,target)
 
                     running_loss +=loss.item()
                     epoch_iterator.set_description(
@@ -121,24 +129,28 @@ class Brain:
                     )
 
                 running_loss /= step+1
-                dice = 1-running_loss
+                metric = running_loss
 
-                self.validation_dices[n].append(dice)
+                self.validation_metrics[n].append(metric)
                 if self.verbose:
-                    print("Validation dice :",dice)
+                    print("Validation metric :",metric)
 
-                if dice > self.best_dices[n]:
-                    self.best_dices[n] = dice
+                if metric < self.best_metrics[n]:
+                    self.best_metrics[n] = metric
                     self.best_epoch[n] = self.global_epoch[n]
                     save_path = os.path.join(self.model_dirs[n],self.model_name+"_"+datetime.datetime.now().strftime("%Y_%d_%m")+"_E_"+str(self.best_epoch[n])+".pth")
                     torch.save(
                         network.state_dict(), save_path
                     )
                     # data_model["best"] = save_path
-                    print("Model Was Saved ! Current Best Avg. Dice: {} Current Avg. Dice: {}".format(self.best_dices[n], dice))
+                    print("Model Was Saved ! Current Best Avg. metric: {} Current Avg. metric: {}".format(self.best_metrics[n], metric))
                 else:
-                    print("Model Was Not Saved ! Current Best Avg. Dice: {} Current Avg. Dice: {}".format(self.best_dices[n], dice))
+                    print("Model Was Not Saved ! Current Best Avg. metric: {} Current Avg. metric: {}".format(self.best_metrics[n], metric))
     
+    def LoadModels(self,model_lst):
+        for n,net in enumerate(self.networks):
+            print("Loading model", model_lst[n])
+            net.load_state_dict(torch.load(model_lst[n],map_location=self.device))
 
 # #####################################
 #  Networks
@@ -149,7 +161,6 @@ class DQN(nn.Module):
         self,
         in_channels: int = 1,
         out_channels: int = 6,
-        lr:float = 1e-4,
         dropout_rate: float = 0.0,
     ) -> None:
         super(DQN, self).__init__()
@@ -175,13 +186,10 @@ class DQN(nn.Module):
         )
         self.pool3 = nn.MaxPool3d(2)
 
-        self.fc0 = nn.Linear(27648,512)
+        self.fc0 = nn.Linear(128*6*6*6,512)
         self.fc1 = nn.Linear(512, 256)
         self.fc2 = nn.Linear(256, 128)
         self.fc3 = nn.Linear(128, out_channels)
-
-        self.loss_fn = nn.L1Loss()
-        self.optimizer = optim.Adam(self.parameters(), lr=lr)
 
     def forward(self,x):
         # print(x.size())
@@ -195,7 +203,7 @@ class DQN(nn.Module):
         x = F.relu(self.fc0(x))
         x = F.relu(self.fc1(x))
         x = F.relu(self.fc2(x))
-        output = F.softmax(self.fc3(x), dim=1)
+        output = x #F.softmax(self.fc3(x), dim=1)
         return output
 
 

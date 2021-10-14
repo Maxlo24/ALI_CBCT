@@ -15,7 +15,7 @@ from Environement_class import Environement
 from TrainingManager_class import TrainingMaster
 
 def GetEnvironementsAgents(dir_scans,spacing_lst,agent_type,agent_FOV,landmarks):
-
+    dim = len(spacing_lst)
     scan_lst = []
     for spacing in spacing_lst:
        scan_lst.append([])
@@ -68,7 +68,11 @@ def GetEnvironementsAgents(dir_scans,spacing_lst,agent_type,agent_FOV,landmarks)
     environement_lst = []
     for data in data_lst:
         print("Generating Environement for :" , os.path.dirname(data["images"][0]))
-        env = Environement(data["images"],np.array(agent_FOV)/2)
+        env = Environement(
+            data["images"],
+            np.array(agent_FOV)/2,
+            verbose=True
+            )
         for fcsv in landmarks:
             env.LoadLandmarks(data[fcsv])
 
@@ -81,7 +85,9 @@ def GetEnvironementsAgents(dir_scans,spacing_lst,agent_type,agent_FOV,landmarks)
             agt = agent_type(
                 targeted_landmark=label,
                 # models=DRLnet,
+                env_dim = dim,
                 FOV=agent_FOV,
+                start_pos_radius = 40,
                 verbose = True
             )
             agent_lst.append(agt)
@@ -201,4 +207,57 @@ def CorrectCSV(filePath, Rcar = [" ", "-1"], Rlab = ["RGo_LGo", "RCo_LCo", "LCo_
                 writer.writerow(row)
 
 
+def GetImageInfo(filepath):
+    ref = sitk.ReadImage(filepath)
+    ref_size = np.array(ref.GetSize())
+    ref_spacing = np.array(ref.GetSpacing())
+    ref_origin = np.array(ref.GetOrigin())
+    ref_direction = np.array(ref.GetDirection())
+
+    return ref_size,ref_spacing,ref_origin,ref_direction
+
+def CreateNewImageFromRef(filepath):
+    ref_size,ref_spacing,ref_origin,ref_direction = GetImageInfo(filepath)
+    image = sitk.Image(ref_size.tolist(), sitk.sitkInt16)
+    image.SetOrigin(ref_origin.tolist())
+    image.SetSpacing(ref_spacing.tolist())
+    image.SetDirection(ref_direction.tolist())
+
+    return image
+
+def GetSphereMaskCoord(h,w,l,center,rad):
+    X, Y, Z = np.ogrid[:h, :w, :l]
+    dist_from_center = np.sqrt((X - center[2])**2 + (Y-center[1])**2 + (Z-center[0])**2)
+    mask = dist_from_center <= rad
+
+    return np.array(np.where(mask))
+
+def PlotAgentPath(agent,rad = 2):
+    paths = agent.position_mem
+    environement = agent.environement
+
+    for dim,path in enumerate(paths):
+        refImg = environement.images_path[dim]
+        ref_size,ref_spacing,ref_origin,ref_direction = GetImageInfo(refImg)
+        image_3D = CreateNewImageFromRef(refImg)
+        for coord in path :
+
+            maskCoord = GetSphereMaskCoord(ref_size[0],ref_size[1],ref_size[2],coord,rad)
+            maskCoord=maskCoord.tolist()
+
+            for i in range(0,len(maskCoord[0])):
+                image_3D.SetPixel([maskCoord[0][i],maskCoord[1][i],maskCoord[2][i]],1)
+
+        maskCoord = GetSphereMaskCoord(ref_size[0],ref_size[1],ref_size[2],environement.GetLandmarkPos(dim,agent.target),rad*2)
+        maskCoord=maskCoord.tolist()
+
+        for i in range(0,len(maskCoord[0])):
+            image_3D.SetPixel([maskCoord[0][i],maskCoord[1][i],maskCoord[2][i]],2)
+
+        writer = sitk.ImageFileWriter()
+        writer.SetFileName(os.path.basename(refImg))
+        writer.Execute(image_3D)
+
+        print("Agent path generated at :", refImg)
+        
 

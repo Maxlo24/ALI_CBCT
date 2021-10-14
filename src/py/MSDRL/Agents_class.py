@@ -15,6 +15,8 @@ from GlobalVar import*
 
 from Models_class import DRLnet
 
+def OUT_WARNING():
+    print("WARNING : Agent trying to go in a none existing space ")
 
 # #####################################
 #  Agents
@@ -25,10 +27,12 @@ class DQNAgent :
     def __init__(
         self,
         targeted_landmark,
+        env_dim,
         brain = None,
         environement = None,
         FOV = [32,32,32],
         start_pos_radius = 20,
+        shortmem_size = 10,
         verbose = False
     ) -> None:
     
@@ -38,12 +42,22 @@ class DQNAgent :
         self.start_pos_radius = start_pos_radius
         self.position = np.array([0,0,0], dtype=np.int16)
         self.FOV = np.array(FOV, dtype=np.int16)
-        self.movement_matrix = MOVEMENT_MATRIX
-        self.movement_id = MOVEMENT_ID
+        self.movement_matrix = MOVEMENT_MATRIX_26
+        self.movement_id = MOVEMENT_ID_26
 
         self.brain = brain
 
         self.verbose = verbose
+
+        self.env_dim = env_dim
+
+        position_mem = []
+        position_shortmem = []
+        for i in range(env_dim):
+            position_mem.append([])
+            position_shortmem.append(deque(maxlen=shortmem_size))
+        self.position_mem = position_mem
+        self.position_shortmem = position_shortmem
 
 
     def SetEnvironement(self, environement): self.environement = environement
@@ -81,7 +95,7 @@ class DQNAgent :
     def Move(self, movement_idx):
         new_pos = self.position + self.movement_matrix[movement_idx]
         if new_pos.all() > 0 and (new_pos < self.environement.GetSize(self.scale_state)).all():
-            self.position += self.movement_matrix[movement_idx]
+            self.position = new_pos
             if self.verbose:
                 print("Moving ", self.movement_id[movement_idx])
         else:
@@ -96,6 +110,32 @@ class DQNAgent :
         if self.verbose:
             print("Validating agent :", self.target)
         self.brain.Validate(data)
+
+    def Search(self):
+        self.position_mem[self.scale_state].append(self.position)
+        self.position_shortmem[self.scale_state].append(self.position)
+        found = False
+        while not found:
+            action = self.environement.GetBestMove(self.scale_state,self.position,self.target)
+            # action = self.PredictAction()
+            self.Move(action)
+            if self.Visited():
+                found = True
+            self.position_mem[self.scale_state].append(self.position)
+            self.position_shortmem[self.scale_state].append(self.position)
+        print("Agent pos = ", self.position, "Landmark pos = ", self.environement.GetLandmarkPos(self.scale_state,self.target))
+        print("Landmark found")
+
+    def Visited(self):
+        visited = False
+        # print(self.position, self.position_shortmem[self.scale_state],)
+        for previous_pos in self.position_shortmem[self.scale_state]:
+            if np.array_equal(self.position,previous_pos):
+                visited = True
+        return visited
+
+    def PredictAction(self):
+        return self.brain.Predict(self.scale_state,self.GetState())
 
 
 class RLAgent :
@@ -345,5 +385,3 @@ class RLAgent :
         print(self.models[0])
 
 
-def OUT_WARNING():
-    print("WARNING : Agent trying to go in a none existing space ")

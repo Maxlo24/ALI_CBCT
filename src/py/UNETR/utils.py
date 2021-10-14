@@ -394,7 +394,6 @@ def train(inID, outID, data_model, global_step, epoch_loss_values, max_iteration
             "Training (%d / %d Steps) (loss=%2.5f)" % (global_step+steps, max_iterations, loss)
         )
         data_model["model"] = model
-
     epoch_loss /= steps
     epoch_loss_values.append(epoch_loss)
 

@@ -36,7 +36,8 @@ class TrainingMaster :
         self,
         environement_lst,
         agent_lst,
-        max_memory_size = 100,
+        max_train_memory_size = 100,
+        max_val_memory_size = 100,
         val_percentage = 0.2,
         env_dim = 3,
         num_worker = 1,
@@ -57,8 +58,8 @@ class TrainingMaster :
             self.target_lst.append(target)
             data_dic[target] = {"train" : [], "val" : []}
             for dim in range(self.env_dim):
-                data_dic[agent.target]["train"].append(deque(maxlen=max_memory_size))
-                data_dic[agent.target]["val"].append(deque(maxlen=int(max_memory_size*val_percentage)))
+                data_dic[agent.target]["train"].append(deque(maxlen=max_train_memory_size))
+                data_dic[agent.target]["val"].append(deque(maxlen=max_val_memory_size))
 
         self.dataset = data_dic
 
@@ -96,8 +97,9 @@ class TrainingMaster :
         for agent in self.agents:
             for n in range(data_on_each_env):
                 for env in self.train_env:
-                    for dim in range(self.env_dim):
-                        self.dataset[agent.target][data_id][dim].append(env.GetRandomSample(dim,agent.target,agent.start_pos_radius,agent.FOV))
+                    if env.LandmarkIsPresent(agent.target):
+                        for dim in range(self.env_dim):
+                            self.dataset[agent.target][data_id][dim].append(env.GetRandomSample(dim,agent.target,agent.start_pos_radius,agent.FOV))
             print(data_id,"dataset generated for Agent :", agent.target)
 
     def GenerateTrainingDataset(self,data_size):
@@ -133,7 +135,7 @@ class TrainingMaster :
             data_loader_dic[target] = {"ds":ds_data,"dl":dl_data}
         return data_loader_dic
 
-    def GenerateDataloaders(self):
+    def GenerateAllDataloaders(self):
         self.GenerateTrainDataLoader()
         self.GenerateValidationDataLoader()
 
@@ -149,19 +151,21 @@ class TrainingMaster :
         cycle_nbr = int(max_epoch/data_update_freq)
         epoch_ctr = 0
         val_ctr = 0
+        self.GenerateValidationDataset(data_size)
+        self.GenerateValidationDataLoader()
 
         for cycle in range(cycle_nbr):
-            self.GenerateAllDataset(data_size)
-            self.GenerateDataloaders()
+            self.GenerateTrainingDataset(data_size)
+            self.GenerateTrainDataLoader()
             for epoch in range(data_update_freq):
                 epoch_ctr +=1
                 val_ctr +=1
                 print("Epoch :", epoch_ctr,"/",max_epoch)
-                # for agent in self.agents:
-                    # agent.Train(self.train_data_loaders[agent.target]["dl"])
-                    # if val_ctr>=val_freq:
-                    #     agent.Validate(self.val_data_loaders[agent.target]["dl"])
-                    #     val_ctr = 0
+                for agent in self.agents:
+                    agent.Train(self.train_data_loaders[agent.target]["dl"])
+                    if val_ctr>=val_freq:
+                        agent.Validate(self.val_data_loaders[agent.target]["dl"])
+                if val_ctr>=val_freq: val_ctr = 0
         
         print("End of training")
         for agent in self.agents:

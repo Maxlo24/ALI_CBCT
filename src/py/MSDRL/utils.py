@@ -6,18 +6,27 @@ import os
 import glob
 
 from GlobalVar import*
-from Models_class import DRLnet
-from Agents_class import (
-    DQNAgent,
-    RLAgent
-)
-from Environement_class import Environement
-from TrainingManager_class import TrainingMaster
 
-def GetEnvironementsAgents(dir_scans,spacing_lst,agent_type,agent_FOV,landmarks):
-    dim = len(spacing_lst)
+def GetAgentLst(agents_param):
+    agent_lst = []
+    for fcsv in agents_param["landmarks"]:
+        for label in LABELS[fcsv]:
+            print("Generating Agent for the lamdmark :" , label)
+            agt = agents_param["type"](
+                targeted_landmark=label,
+                # models=DRLnet,
+                movements = agents_param["movements"],
+                env_dim = agents_param["dim"],
+                FOV=agents_param["FOV"],
+                start_pos_radius = 40,
+                verbose = True
+            )
+            agent_lst.append(agt)
+    return agent_lst
+
+def GetTrainingEnvironementsAgents(environments_param,agents_param):
     scan_lst = []
-    for spacing in spacing_lst:
+    for spacing in environments_param["spacings"]:
        scan_lst.append([])
 
     U_fcsv_lst = []
@@ -25,16 +34,16 @@ def GetEnvironementsAgents(dir_scans,spacing_lst,agent_type,agent_FOV,landmarks)
     CB_fcsv_lst = []
     
 
-    print("Reading folder : ", dir_scans)
-    print("Selected spacings : ", spacing_lst)
+    print("Reading folder : ", environments_param["dir"])
+    print("Selected spacings : ", environments_param["spacings"])
     		
-    normpath = os.path.normpath("/".join([dir_scans, '**', '']))
+    normpath = os.path.normpath("/".join([environments_param["dir"], '**', '']))
     for img_fn in sorted(glob.iglob(normpath, recursive=True)):
         #  print(img_fn)
         if os.path.isfile(img_fn) and True in [ext in img_fn for ext in [".nrrd", ".nrrd.gz", ".nii", ".nii.gz", ".gipl", ".gipl.gz"]]:
             baseName = os.path.basename(img_fn)
             if True in [scan in baseName for scan in ["scan","Scan"]]:
-                for i,spacing in enumerate(spacing_lst):
+                for i,spacing in enumerate(environments_param["spacings"]):
                     if "_"+str(spacing) in baseName:
                         scan_lst[i].append(img_fn)
 
@@ -53,7 +62,7 @@ def GetEnvironementsAgents(dir_scans,spacing_lst,agent_type,agent_FOV,landmarks)
         data = {}
 
         images_path = []
-        for i,spacing in enumerate(spacing_lst):
+        for i,spacing in enumerate(environments_param["spacings"]):
             images_path.append(scan_lst[i][n])
         data["images"] = images_path
         data["u"] = U_fcsv_lst[n]
@@ -68,36 +77,70 @@ def GetEnvironementsAgents(dir_scans,spacing_lst,agent_type,agent_FOV,landmarks)
     environement_lst = []
     for data in data_lst:
         print("Generating Environement for :" , os.path.dirname(data["images"][0]))
-        env = Environement(
-            data["images"],
-            np.array(agent_FOV)/2,
+        env = environments_param["type"](
+            padding = np.array(agents_param["FOV"])/2+1,
             verbose=True
             )
-        for fcsv in landmarks:
+        env.LoadImages(data["images"])
+        for fcsv in agents_param["landmarks"]:
             env.LoadLandmarks(data[fcsv])
 
         environement_lst.append(env)
 
-    agent_lst = []
-    for fcsv in landmarks:
-        for label in LABELS[fcsv]:
-            print("Generating Agent for the lamdmark :" , label)
-            agt = agent_type(
-                targeted_landmark=label,
-                # models=DRLnet,
-                env_dim = dim,
-                FOV=agent_FOV,
-                start_pos_radius = 40,
-                verbose = True
-            )
-            agent_lst.append(agt)
+    agent_lst = GetAgentLst(agents_param)
 
     print("Number of Environement generated :",len(environement_lst))
     print("Number of Agent generated :",len(agent_lst))
 
     return environement_lst,agent_lst
 
+def GenPredictEnvironment(environments_param,agents_param):
+    scan_lst = []
+    print("Reading folder : ", environments_param["dir"])
 
+    normpath = os.path.normpath("/".join([environments_param["dir"], '**', '']))
+    for img_fn in sorted(glob.iglob(normpath, recursive=True)):
+        #  print(img_fn)
+        if os.path.isfile(img_fn) and True in [ext in img_fn for ext in [".nrrd", ".nrrd.gz", ".nii", ".nii.gz", ".gipl", ".gipl.gz"]]:
+            scan_lst.append(img_fn)
+
+
+    environement_lst = []
+    for scan in scan_lst:
+        print("Generating Environement for :" , scan)
+        env = environments_param["type"](
+            padding = np.array(agents_param["FOV"])/2+1,
+            verbose=agents_param["verbose"]
+            )
+        env.GenerateImages(scan,environments_param["spacings"])
+
+        environement_lst.append(env)
+    return environement_lst
+
+def GetBrain(dir_path):
+    brainDic = {}
+    normpath = os.path.normpath("/".join([dir_path, '**', '']))
+    for img_fn in sorted(glob.iglob(normpath, recursive=True)):
+        #  print(img_fn)
+        if os.path.isfile(img_fn) and ".pth" in img_fn:
+            lab = os.path.basename(os.path.dirname(os.path.dirname(img_fn)))
+            num = os.path.basename(os.path.dirname(img_fn))
+            if lab in brainDic.keys():
+                brainDic[lab][num] = img_fn
+            else:
+                network = {num : img_fn}
+                brainDic[lab] = network
+
+    # print(brainDic)
+    out_dic = {}
+    for l_key in brainDic.keys():
+        networks = []
+        for n_key in range(len(brainDic[l_key].keys())):
+            networks.append(brainDic[l_key][str(n_key)])
+
+        out_dic[l_key] = networks
+
+    return out_dic
 
 def ResampleImage(input,size,spacing,origin,direction,interpolator,VectorImageType):
         ResampleType = itk.ResampleImageFilter[VectorImageType, VectorImageType]
@@ -114,7 +157,12 @@ def ResampleImage(input,size,spacing,origin,direction,interpolator,VectorImageTy
         resampled_img = resampleImageFilter.GetOutput()
         return resampled_img
 
-
+def ItkToSitk(itk_img):
+    new_sitk_img = sitk.GetImageFromArray(itk.GetArrayFromImage(itk_img), isVector=itk_img.GetNumberOfComponentsPerPixel()>1)
+    new_sitk_img.SetOrigin(tuple(itk_img.GetOrigin()))
+    new_sitk_img.SetSpacing(tuple(itk_img.GetSpacing()))
+    new_sitk_img.SetDirection(itk.GetArrayFromMatrix(itk_img.GetDirection()).flatten())
+    return new_sitk_img
 
 def SetSpacing(filepath,output_spacing=[0.5, 0.5, 0.5],outpath=-1):
     """
@@ -130,7 +178,7 @@ def SetSpacing(filepath,output_spacing=[0.5, 0.5, 0.5],outpath=-1):
      path to save the new image
     """
 
-    print("Reading:", filepath)
+    print("Resample :", filepath, ", with spacing :", output_spacing)
     img = itk.imread(filepath)
 
     spacing = np.array(img.GetSpacing())
@@ -261,3 +309,21 @@ def PlotAgentPath(agent,rad = 2):
         print("Agent path generated at :", refImg)
         
 
+def ReadFCSV(filePath):
+    """
+    Read fiducial file ".fcsv" and return a liste of landmark dictionnary
+
+    Parameters
+    ----------
+    filePath
+     path of the .fcsv file 
+    """
+    Landmark_lst = []
+    with open(filePath, mode='r') as csv_file:
+        csv_reader = csv.reader(csv_file)
+        for row in csv_reader:
+            if "#" not in row[0]:
+                landmark = {}
+                landmark["id"], landmark["x"], landmark["y"], landmark["z"], landmark["label"] = row[0], row[1], row[2], row[3], row[11]
+                Landmark_lst.append(landmark)
+    return Landmark_lst

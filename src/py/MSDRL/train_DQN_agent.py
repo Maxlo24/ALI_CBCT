@@ -1,15 +1,17 @@
 # from torch._C import device
 from utils import (
-    GetEnvironementsAgents,
+    GetTrainingEnvironementsAgents,
     PlotAgentPath
 )
 
 import SimpleITK as sitk
 import os
 import torch
+import datetime
+
 
 from GlobalVar import*
-from Models_class import (Brain,DQN)
+from Models_class import (Brain,DQN,MaxDQN)
 from Agents_class import (DQNAgent)
 from Environement_class import (Environement)
 from TrainingManager_class import (TrainingMaster)
@@ -22,16 +24,28 @@ def main(args):
     # #####################################
     #  Init_param
     # #####################################
-    nbr_workers = args.nbr_worker
 
-    spacing_lst = args.spacing
-    agent_FOV = args.agent_FOV
-    dim = len(spacing_lst)
+    dim = len(args.spacing)
+    movements = MOVEMENTS[args.movement]
 
-    batch_size = 100
-    data_size = 100000
+    batch_size = args.batch_size
+    data_size = args.data_size
 
-    environement_lst, agent_lst = GetEnvironementsAgents(args.dir_scans,spacing_lst,DQNAgent,agent_FOV,args.landmarks)
+    environments_param = {
+        "type" : Environement,
+        "dir" : args.dir_scans,
+        "spacings" : args.spacing,
+    }
+
+    agents_param = {
+        "type" : DQNAgent,
+        "FOV" : args.agent_FOV,
+        "landmarks" : args.landmarks,
+        "movements" : movements,
+        "dim" : dim
+    }
+
+    environement_lst, agent_lst = GetTrainingEnvironementsAgents(environments_param,agents_param)
     # agent_lst = [agent_lst[0]]
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -47,8 +61,9 @@ def main(args):
             model_name = agent.target,
             device = device,
             in_channels = 1,
-            out_channels = 26,
-            learning_rate = 1e-4,
+            in_size = args.agent_FOV,
+            out_channels = len(movements["id"]),
+            learning_rate = args.learning_rate,
             batch_size= batch_size,
             verbose=True
             ))
@@ -57,24 +72,22 @@ def main(args):
         environement_lst= environement_lst,
         agent_lst = agent_lst, 
         max_train_memory_size = data_size,
-        max_val_memory_size= data_size,
-        val_percentage = 0.2,
+        max_val_memory_size= data_size*2,
+        val_percentage = args.test_percentage/100,
         env_dim = dim,
-        num_worker = nbr_workers,
+        num_worker = args.nbr_worker,
         batch_size = batch_size,
         )
 
-    Master.GenerateAllDataset(data_size)
-    Master.GenerateAllDataloaders()
-
     Master.Train(
         max_epoch = args.max_epoch,
-        data_size = int(data_size/2),
-        data_update_freq = 1,
-        val_freq = 1)
+        val_freq = args.val_freq,
+        data_update_freq = args.data_update_freq,
+        data_update_ratio= args.data_update_ratio
+        )
 
     # a = agent_lst[0]
-    # e = environement_lst[1]
+    # e = environement_lst[0]
 
     # a.SetEnvironement(e)
 
@@ -90,11 +103,12 @@ def main(args):
     # a.SetRandomPos()
     # a.Search(100)
     # a.GoToScale(0)
-    # a.brain.LoadModels(["/Users/luciacev-admin/Desktop/MSDRL_models/Ba_2021_14_10_E_2.pth","/Users/luciacev-admin/Desktop/Ba_2021_13_10_E_30.pth","/Users/luciacev-admin/Desktop/Ba_2021_12_10_E_14.pth"])
-    # for i in range(50):
+    # a.brain.LoadModels(["/Users/luciacev-admin/Desktop/MSDRL_models/Ba_2021_18_10_E_2.pth","/Users/luciacev-admin/Desktop/MSDRL_models/Ba_2021_18_10_E_2.pth"])
+    # for i in range(10):
     #     print("Reset")
-    #     a.SetRandomPos()
-    #     a.Search()
+    # a.Search()
+    
+    # PlotAgentPath(a)
 
     # a.GoToScale(1)
     # a.SetRandomPos()
@@ -103,7 +117,6 @@ def main(args):
     # a.SetRandomPos()
     # a.Search(30)
 
-    # PlotAgentPath(a)
 
     # if not os.path.exists("crop"):
     #     os.makedirs("crop")
@@ -112,7 +125,7 @@ def main(args):
     #     for k,v in value.items():
     #         for n,dq in enumerate(v):
     #             for obj in dq:
-                    # print(obj)
+    #                 print(obj)
                     # output = sitk.GetImageFromArray(obj["state"][0][:])
                     # writer = sitk.ImageFileWriter()
                     # writer.SetFileName(f"crop/test_{key}_{n}.nii.gz")
@@ -135,20 +148,31 @@ if __name__ ==  '__main__':
     parser = argparse.ArgumentParser(description='Training for Automatic Landmarks Identification', formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     
     input_group = parser.add_argument_group('dir')
-    # input_group.add_argument('--dir_project', type=str, help='Directory with all the project',default='/Users/luciacev-admin/Documents/Projects/ALI_benchmark')
-    # input_group.add_argument('--dir_data', type=str, help='Input directory with 3D images', default=parser.parse_args().dir_project+'/data')
-    input_group.add_argument('--dir_scans', type=str, help='Input directory with the scans')#,default=parser.parse_args().dir_data+'/Scans')
+    input_group.add_argument('--dir_project', type=str, help='Directory with all the project',default='/Users/luciacev-admin/Documents/Projects/MSDRL_benchmark')
+    input_group.add_argument('--dir_data', type=str, help='Input directory with 3D images', default=parser.parse_args().dir_project+'/data')
+    input_group.add_argument('--dir_scans', type=str, help='Input directory with the scans',default=parser.parse_args().dir_data+'/patients')
 
     # input_group.add_argument('--dir_cash', type=str, help='Output directory of the training',default=parser.parse_args().dir_data+'/Cash')
-    input_group.add_argument('--dir_model', type=str, help='Output directory of the training',default='ALI_models') # parser.parse_args().dir_data+
+    input_group.add_argument('--dir_model', type=str, help='Output directory of the training',default= parser.parse_args().dir_data+'/ALI_CNN_models_'+datetime.datetime.now().strftime("%Y_%d_%m"))
 
-    input_group.add_argument('-lm','--landmarks',nargs="+",type=str,help="Prepare the data for uper and/or lower landmark training (ex: u l cb)", default=["u","l","cb"])
+    #Environment
+    input_group.add_argument('-lm','--landmarks',nargs="+",type=str,help="Prepare the data for uper and/or lower landmark training (ex: u l cb)", default=["cb"])
     input_group.add_argument('-sp', '--spacing', nargs="+", type=float, help='Spacing of the different scales', default=[2,0.3])
+    
+    #Agent
     input_group.add_argument('-fov', '--agent_FOV', nargs="+", type=float, help='Wanted crop size', default=[64,64,64])
-    input_group.add_argument('-mi', '--max_epoch', type=int, help='Number of training epocs', default=10)
+    input_group.add_argument('-mvt','--movement', type=str, help='Number of posssible agent movement',default='6') # parser.parse_args().dir_data+
+    
+    #Training data
+    input_group.add_argument('-bs', '--batch_size', type=int, help='Batch size', default=5)
+    input_group.add_argument('-ds', '--data_size', type=int, help='Size of the dataset', default=5000)
+    input_group.add_argument('-duf', '--data_update_freq', type=int, help='Data update frequency', default=1)
+    input_group.add_argument('-dur', '--data_update_ratio', type=float, help='Ratio of data to update', default=0.5)
+    #Training param
+    input_group.add_argument('-mi', '--max_epoch', type=int, help='Number of training epocs', default=200)
+    input_group.add_argument('-vf', '--val_freq', type=int, help='Validation frequency', default=1)
     input_group.add_argument('-tp', '--test_percentage', type=int, help='Percentage of data to keep for validation', default=20)
-    input_group.add_argument('-mn', '--model_name', type=str, help='Name of the model', default="ALI_model")
-    # input_group.add_argument('-nl', '--nbr_label', type=int, help='Number of label', default=19)
+    input_group.add_argument('-lr', '--learning_rate', type=float, help='Learning rate', default=1e-4)
     input_group.add_argument('-nw', '--nbr_worker', type=int, help='Number of worker', default=2)
 
     args = parser.parse_args()

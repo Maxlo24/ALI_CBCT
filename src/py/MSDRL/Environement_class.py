@@ -18,6 +18,12 @@ from monai.transforms import (
     BorderPad,
 )
 
+from utils import(
+    ReadFCSV,
+    SetSpacing,
+    ItkToSitk
+)
+
 # #####################################
 #  Environement
 # #####################################
@@ -25,7 +31,6 @@ from monai.transforms import (
 class Environement :
     def __init__(
         self,
-        images_path,
         padding,
         verbose = False
     ) -> None:
@@ -35,14 +40,13 @@ class Environement :
             landmark_fiducial : path of the fiducial list linked with the image,
         """
         self.padding = padding.astype(np.int16)
-        self.LoadImages(images_path)
-        self.ResetLandmarks()
         self.verbose = verbose
+        self.transform = Compose([AddChannel(),BorderPad(spatial_border=self.padding.tolist()),ScaleIntensity(minv = -1.0, maxv = 1.0, factor = None)])
+        # self.transform = Compose([AddChannel(),BorderPad(spatial_border=self.padding.tolist())])
+
 
     def LoadImages(self,images_path):
         self.images_path = images_path
-
-        transform = Compose([AddChannel(),BorderPad(spatial_border=self.padding.tolist()),ScaleIntensity(minv = 0.0, maxv = 1.0, factor = None)])
 
         data = []
         sizes = []
@@ -57,13 +61,42 @@ class Environement :
             origins.append(np.array([origin[2],origin[1],origin[0]]))
             img_ar = sitk.GetArrayFromImage(img)
             sizes.append(np.shape(img_ar))
-            data.append(torch.from_numpy(transform(img_ar)))
+            data.append(torch.from_numpy(self.transform(img_ar)).type(torch.float32))
 
         self.dim = len(data)
         self.data = data
         self.sizes = sizes
         self.spacings = spacings
         self.origins = origins
+
+        self.ResetLandmarks()
+
+
+    def GenerateImages(self,ref_img,spacing_lst):
+        self.images_path = ref_img
+
+        data = []
+        sizes = []
+        spacings = []
+        origins = []
+        
+        for spacing in spacing_lst:
+            img = ItkToSitk(SetSpacing(ref_img,[spacing,spacing,spacing]))
+            # sizes.append(np.array(img.GetSize()))
+            spacings.append(np.array(img.GetSpacing()))
+            origin = img.GetOrigin()
+            origins.append(np.array([origin[2],origin[1],origin[0]]))
+            img_ar = sitk.GetArrayFromImage(img)#.astype(dtype=np.float32)
+            sizes.append(np.shape(img_ar))
+            data.append(torch.from_numpy(self.transform(img_ar)).type(torch.float32))
+
+        self.dim = len(data)
+        self.data = data
+        self.sizes = sizes
+        self.spacings = spacings
+        self.origins = origins
+
+        self.ResetLandmarks()
 
     def ResetLandmarks(self):
         dim_lm = []
@@ -104,19 +137,20 @@ class Environement :
 
     def GetZone(self,dim,center,crop_size):
         cropTransform = SpatialCrop(center.tolist() + self.padding,crop_size)
-        crop = cropTransform(self.data[dim])
+        rescale = ScaleIntensity(minv = -1.0, maxv = 1.0, factor = None)
+        crop = rescale(cropTransform(self.data[dim])).type(torch.float32)
         return crop
 
-    def GetRewardLst(self,dim,position,target):
+    def GetRewardLst(self,dim,position,target,mvt_matrix):
         reward_lst = []
         agent_dist = self.GetL2DistFromLandmark(dim,position,target)
-        for move in MOVEMENT_MATRIX_26:
+        for move in mvt_matrix:
             neighbor_coord = position + move
             dist_from_lm = self.GetL2DistFromLandmark(dim,neighbor_coord,target)
             reward_lst.append(agent_dist - dist_from_lm)
         return reward_lst
 
-    def GetRandomSample(self,dim,target,radius,crop_size):
+    def GetRandomSample(self,dim,target,radius,crop_size,mvt_matrix):
         sample = {}
         min_coord = [0,0,0]
         max_coord = self.GetSize(dim)
@@ -131,9 +165,10 @@ class Environement :
                 rand_coord[axe] = min(val,max_coord[axe])
             rand_coord = rand_coord.astype(np.int16)
 
-        best_action = np.argmax(self.GetRewardLst(dim,rand_coord,target))
+        best_action = np.argmax(self.GetRewardLst(dim,rand_coord,target,mvt_matrix))
 
         sample["state"] = self.GetZone(dim,rand_coord,crop_size)
+        # sample["state"] = "x"
         # sample["size"] = self.GetZone(dim,rand_coord,crop_size).size()
         # sample["coord"] = rand_coord
         sample["target"] = best_action
@@ -142,28 +177,9 @@ class Environement :
 
         return sample
 
-    def GetBestMove(self,dim,position,target):
-        best_action = np.argmax(self.GetRewardLst(dim,position,target))
+    def GetBestMove(self,dim,position,target,mvt_matrix):
+        best_action = np.argmax(self.GetRewardLst(dim,position,target,mvt_matrix))
         if self.verbose:
-            print("Best move is ", MOVEMENT_MATRIX_26[best_action])
+            print("Best move is ", mvt_matrix[best_action])
         return best_action
 
-    
-def ReadFCSV(filePath):
-    """
-    Read fiducial file ".fcsv" and return a liste of landmark dictionnary
-
-    Parameters
-    ----------
-    filePath
-     path of the .fcsv file 
-    """
-    Landmark_lst = []
-    with open(filePath, mode='r') as csv_file:
-        csv_reader = csv.reader(csv_file)
-        for row in csv_reader:
-            if "#" not in row[0]:
-                landmark = {}
-                landmark["id"], landmark["x"], landmark["y"], landmark["z"], landmark["label"] = row[0], row[1], row[2], row[3], row[11]
-                Landmark_lst.append(landmark)
-    return Landmark_lst

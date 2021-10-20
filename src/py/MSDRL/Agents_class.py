@@ -27,6 +27,7 @@ class DQNAgent :
     def __init__(
         self,
         targeted_landmark,
+        movements,
         env_dim,
         brain = None,
         environement = None,
@@ -42,8 +43,8 @@ class DQNAgent :
         self.start_pos_radius = start_pos_radius
         self.position = np.array([0,0,0], dtype=np.int16)
         self.FOV = np.array(FOV, dtype=np.int16)
-        self.movement_matrix = MOVEMENT_MATRIX_26
-        self.movement_id = MOVEMENT_ID_26
+        self.movement_matrix = movements["mat"]
+        self.movement_id = movements["id"]
 
         self.brain = brain
 
@@ -63,6 +64,10 @@ class DQNAgent :
     def SetEnvironement(self, environement): self.environement = environement
 
     def SetBrain(self,brain): self.brain = brain
+
+    def ClearShortMem(self):
+        for mem in self.position_shortmem:
+            mem.clear()
 
     def GoToScale(self,scale=0):
         self.position = (self.position*(self.environement.GetSpacing(self.scale_state)/self.environement.GetSpacing(scale))).astype(np.int16)
@@ -86,12 +91,14 @@ class DQNAgent :
         return state
 
     def UpScale(self):
+        scale_changed = False
         if self.scale_state < self.environement.dim -1 :
             self.GoToScale(self.scale_state + 1)
-        else:
-            OUT_WARNING()
+            scale_changed = True
+        # else:
+        #     OUT_WARNING()
+        return scale_changed
         
-
     def Move(self, movement_idx):
         new_pos = self.position + self.movement_matrix[movement_idx]
         if new_pos.all() > 0 and (new_pos < self.environement.GetSize(self.scale_state)).all():
@@ -100,31 +107,44 @@ class DQNAgent :
                 print("Moving ", self.movement_id[movement_idx])
         else:
             OUT_WARNING()
+            self.ClearShortMem()
+            self.SetRandomPos()
 
-    def Train(self, data):
+    def Train(self, data, dim):
         if self.verbose:
             print("Training agent :", self.target)
-        self.brain.Train(data)
+        self.brain.Train(data,dim)
 
-    def Validate(self, data):
+    def Validate(self, data,dim):
         if self.verbose:
             print("Validating agent :", self.target)
-        self.brain.Validate(data)
+        self.brain.Validate(data,dim)
 
-    def Search(self):
+    def SavePos(self):
         self.position_mem[self.scale_state].append(self.position)
         self.position_shortmem[self.scale_state].append(self.position)
+
+    def Search(self):
+        if self.verbose:
+            print("Searching landmark :",self.target)
+        self.GoToScale()
+        self.SetRandomPos()
+        self.SavePos()
         found = False
         while not found:
-            action = self.environement.GetBestMove(self.scale_state,self.position,self.target)
-            # action = self.PredictAction()
+            # action = self.environement.GetBestMove(self.scale_state,self.position,self.target)
+            action = self.PredictAction()
             self.Move(action)
             if self.Visited():
                 found = True
-            self.position_mem[self.scale_state].append(self.position)
-            self.position_shortmem[self.scale_state].append(self.position)
-        print("Agent pos = ", self.position, "Landmark pos = ", self.environement.GetLandmarkPos(self.scale_state,self.target))
-        print("Landmark found")
+            self.SavePos()
+            if found:
+                if self.verbose:
+                    print("Landmark found at scale :",self.scale_state)
+                    print("Agent pos = ", self.position, "Landmark pos = ", self.environement.GetLandmarkPos(self.scale_state,self.target))
+                # found = not self.UpScale()
+
+        print("Result :", self.position)
 
     def Visited(self):
         visited = False

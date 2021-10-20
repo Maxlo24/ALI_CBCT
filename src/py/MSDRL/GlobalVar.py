@@ -15,6 +15,14 @@ MOVEMENT_MATRIX_6 = np.array([
     [0,0,1],  # MoveLeft
     [0,0,-1], # MoveRight
 ])
+MOVEMENT_ID_6 = [
+    "Up",
+    "Down",
+    "Back",
+    "Front",
+    "Left",
+    "Right"
+]
 
 MOVEMENT_MATRIX_26 = np.array([
     [1,0,0],   # MoveUp
@@ -45,7 +53,6 @@ MOVEMENT_MATRIX_26 = np.array([
     [0,0,-1]   # MoveRight
 ])
 
-MOVEMENT_ID_6 = ["Up", "Down", "Back", "Front", "Left", "Right"]
 MOVEMENT_ID_26 = [
     "Up",
     "UpBack",
@@ -75,7 +82,18 @@ MOVEMENT_ID_26 = [
     "Right"
 ]
 
-def GetTargetOutputFromAction(action):
-    target = np.zeros((1,len(MOVEMENT_MATRIX)))[0]
+MOVEMENTS = {
+    "6" : {
+        "id" : MOVEMENT_ID_6,
+        "mat" : MOVEMENT_MATRIX_6
+    },
+    "26" : {
+        "id" : MOVEMENT_ID_26,
+        "mat" : MOVEMENT_MATRIX_26
+    }
+}
+
+def GetTargetOutputFromAction(mov_mat,action):
+    target = np.zeros((1,len(mov_mat)))[0]
     target[action] = 1
     return target

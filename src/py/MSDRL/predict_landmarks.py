@@ -2,7 +2,9 @@ from utils import (
     GenPredictEnvironment,
     GetAgentLst,
     PlotAgentPath,
-    GetBrain
+    GetBrain,
+    GetTrainingEnvironementsAgents,
+    ReslutAccuracy
 )
 
 import SimpleITK as sitk
@@ -29,6 +31,7 @@ def main(args):
         "type" : Environement,
         "dir" : args.dir_scans,
         "spacings" : args.spacing,
+        "verbose" : False
     }
 
     agents_param = {
@@ -36,35 +39,48 @@ def main(args):
         "FOV" : args.agent_FOV,
         "landmarks" : args.landmarks,
         "movements" : movements,
+        "spawn_rad" : 20,
         "dim" : dim,
         "verbose" : True
     }
 
-    environement_lst = GenPredictEnvironment(environments_param,agents_param)
+    # environement_lst = GenPredictEnvironment(environments_param,agents_param)
+    environement_lst, agent_lst = GetTrainingEnvironementsAgents(environments_param,agents_param)
+
     agent_lst = GetAgentLst(agents_param)
     brain_lst = GetBrain(args.dir_model)
-    environement_lst = [environement_lst[0]]
+    # environement_lst = [environement_lst[0]]
     agent_lst = [agent_lst[0]]
-    # print(brain_lst)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    for agent in agent_lst:
-        brain = Brain(
-            network_type = DQN,
-            network_nbr = dim,
-            device = device,
-            in_channels = 1,
-            in_size = args.agent_FOV,
-            out_channels = len(movements["id"]),
-            )
-        brain.LoadModels(brain_lst[agent.target])
-        agent.SetBrain(brain)
+    # for agent in agent_lst:
+    #     brain = Brain(
+    #         network_type = DQN,
+    #         network_nbr = dim,
+    #         device = device,
+    #         in_channels = 1,
+    #         in_size = args.agent_FOV,
+    #         out_channels = len(movements["id"]),
+    #         )
+    #     brain.LoadModels(brain_lst[agent.target])
+    #     agent.SetBrain(brain)
 
-    for environment in environement_lst:
-        for agent in agent_lst:
-            agent.SetEnvironement(environment)
-            agent.Search()
+    # for environment in environement_lst:
+    #     for agent in agent_lst:
+    #         agent.SetEnvironement(environment)
+    #         agent.Search()
+    #     environment.SavePredictedLandmarks()
+
+
+    for e in environement_lst:
+        for key in args.landmarks:
+            for lm in LABELS[key]:
+                if e.LandmarkIsPresent(lm):
+                    e.AddPredictedLandmark(lm,e.GetLandmarkPos(1,lm))
+                    e.SavePredictedLandmarks()
+    
+    ReslutAccuracy(args.dir_scans)
 
 
 
@@ -73,10 +89,10 @@ if __name__ ==  '__main__':
     
     input_group = parser.add_argument_group('dir')
     input_group.add_argument('--dir_scans', type=str, help='Input directory with the scans',default='/Users/luciacev-admin/Documents/Projects/MSDRL_benchmark/data/test')
-    input_group.add_argument('--dir_model', type=str, help='Directory of the trained models',default= '/Users/luciacev-admin/Documents/Projects/MSDRL_benchmark/data/ALI_CNN_models_2021_19_10')
+    input_group.add_argument('--dir_model', type=str, help='Directory of the trained models',default= '/Users/luciacev-admin/Desktop/MSDRL_models/ALI_CNN_models_2021_21_10_V3')
 
     #Environment
-    input_group.add_argument('-lm','--landmarks',nargs="+",type=str,help="Prepare the data for uper and/or lower landmark training (ex: u l cb)", default=["cb"])
+    input_group.add_argument('-lm','--landmarks',nargs="+",type=str,help="Prepare the data for uper and/or lower landmark training (ex: U L CB)", default=["L","CB"])
     input_group.add_argument('-sp', '--spacing', nargs="+", type=float, help='Spacing of the different scales', default=[2,0.3])
     
     #Agent

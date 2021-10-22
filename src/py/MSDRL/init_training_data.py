@@ -32,11 +32,11 @@ def main(args):
             img_obj = {}
             img_obj["file"] = img_fn
             baseName = os.path.basename(img_fn)
-            if "_U." in baseName :
+            if True in [char in baseName for char in ["_U.", "_U_","_max_","_Max_"]] :
                 U_fcsv_lst.append(img_obj)
-            elif "_L." in baseName :
+            elif True in [char in baseName for char in ["_L.", "_L_","_mand_","_Mand_"]] :
                 L_fcsv_lst.append(img_obj)
-            elif "_CB." in baseName :
+            elif True in [char in baseName for char in ["_CB.", "_CB_"]] :
                 CB_fcsv_lst.append(img_obj)
                 
             else:
@@ -74,29 +74,32 @@ def main(args):
         CorrectCSV(CB_lm["file"])
 
 
-        scan_dirname = os.path.dirname(scan["img"])
+        scan_dirname = os.path.basename(os.path.dirname(scan["img"])).split(" ")[0]
         scan_basename = os.path.basename(scan["img"])
-        scan_name= scan_basename.split(".")
+        scan_name = scan_basename.split(".")
 
-        ScanOutpath = os.path.normpath("/".join([args.out,os.path.basename(scan_dirname)]))
+        ScanOutpath = os.path.normpath("/".join([args.out,scan_dirname]))
 
         if not os.path.exists(ScanOutpath):
             os.makedirs(ScanOutpath)
+
+        elements = scan_name[0].split("_")
+        patient = elements[0] + "_" + elements[1]
 
         for sp in args.spacing:
             new_name = ""
 
             for i,element in enumerate(scan_name):
                 if i == 0:
-                    new_name += element + "_" + str(sp)
+                    new_name = patient + "_scan_" + str(sp)
                 else:
                     new_name += "." + element
             
             SetSpacing(scan["img"],[sp,sp,sp],os.path.join(ScanOutpath,new_name))
 
-        copyfile(U_lm["file"],os.path.join(ScanOutpath,os.path.basename(U_lm["file"])))
-        copyfile(L_lm["file"],os.path.join(ScanOutpath,os.path.basename(L_lm["file"])))
-        copyfile(CB_lm["file"],os.path.join(ScanOutpath,os.path.basename(CB_lm["file"])))
+        copyfile(U_lm["file"],os.path.join(ScanOutpath,patient + "_lm_U.fcsv"))
+        copyfile(L_lm["file"],os.path.join(ScanOutpath,patient + "_lm_L.fcsv"))
+        copyfile(CB_lm["file"],os.path.join(ScanOutpath,patient + "_lm_CB.fcsv"))
 
 
 
@@ -109,7 +112,7 @@ if __name__ ==  '__main__':
     output_params = parser.add_argument_group('Output parameters')
     output_params.add_argument('-o','--out', type=str, help='Output directory', required=True)
 
-    input_group.add_argument('-sp', '--spacing', nargs="+", type=float, help='Wanted output x spacing', default=[2,1,0.3])
+    input_group.add_argument('-sp', '--spacing', nargs="+", type=float, help='Wanted output x spacing', default=[2,0.3])
 
     args = parser.parse_args()
     

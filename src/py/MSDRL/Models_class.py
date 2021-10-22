@@ -75,7 +75,7 @@ class Brain:
         network = self.networks[dim]
         network.eval()
         with torch.no_grad():
-            input = torch.unsqueeze(state,0)
+            input = torch.unsqueeze(state,0).type(torch.float32).to(self.device)
             x = network(input)
         return torch.argmax(x)
 
@@ -96,11 +96,10 @@ class Brain:
         optimizer = self.optimizers[n]
         step=0
         for step, batch in enumerate(epoch_iterator):
-            optimizer.zero_grad()
             # print(batch["state"].size(),batch["target"].size())
             # print(torch.min(batch["state"]),torch.max(batch["state"]) , batch["state"].type())
-            input,target = batch["state"].to(self.device),batch["target"].to(self.device)
-
+            input,target = batch["state"].type(torch.float32).to(self.device),batch["target"].to(self.device)
+            optimizer.zero_grad()
             y = network(input) 
             loss = self.loss_fn(y,target)
             loss.backward()
@@ -140,7 +139,7 @@ class Brain:
                 
                 # print(batch["state"].size(),batch["target"].size())
                 # print(torch.min(batch["state"]),torch.max(batch["state"]))
-                input,target = batch["state"].to(self.device),batch["target"].to(self.device)
+                input,target = batch["state"].type(torch.float32).to(self.device),batch["target"].to(self.device)
 
                 y = network(input)
                 loss = self.loss_fn(y,target)

@@ -1,7 +1,8 @@
 # from torch._C import device
 from utils import (
     GetTrainingEnvironementsAgents,
-    PlotAgentPath
+    PlotAgentPath,
+    CheckCrops
 )
 
 import SimpleITK as sitk
@@ -35,6 +36,7 @@ def main(args):
         "type" : Environement,
         "dir" : args.dir_scans,
         "spacings" : args.spacing,
+        "verbose" : False
     }
 
     agents_param = {
@@ -42,7 +44,9 @@ def main(args):
         "FOV" : args.agent_FOV,
         "landmarks" : args.landmarks,
         "movements" : movements,
-        "dim" : dim
+        "spawn_rad" : args.spawn_radius,
+        "dim" : dim,
+        "verbose" : True
     }
 
     environement_lst, agent_lst = GetTrainingEnvironementsAgents(environments_param,agents_param)
@@ -86,7 +90,8 @@ def main(args):
         data_update_ratio= args.data_update_ratio
         )
 
-    # a = agent_lst[0]
+    # agent = agent_lst[0]
+    # CheckCrops(Master,agent)
     # e = environement_lst[0]
 
     # a.SetEnvironement(e)
@@ -110,33 +115,11 @@ def main(args):
     
     # PlotAgentPath(a)
 
-    # a.GoToScale(1)
-    # a.SetRandomPos()
-    # a.Search(30)
-    # a.GoToScale(2)
-    # a.SetRandomPos()
-    # a.Search(30)
 
 
-    # if not os.path.exists("crop"):
-    #     os.makedirs("crop")
-
-    # for key,value in Master.dataset.items():
-    #     for k,v in value.items():
-    #         for n,dq in enumerate(v):
-    #             for obj in dq:
-    #                 print(obj)
-                    # output = sitk.GetImageFromArray(obj["state"][0][:])
-                    # writer = sitk.ImageFileWriter()
-                    # writer.SetFileName(f"crop/test_{key}_{n}.nii.gz")
-                    # writer.Execute(output)
 
 
-    # Master.GenerateTrainingDataset(1000)
-    # Master.GenerateValidationDataset(200)
-    # Master.GenerateTrainDataLoader()
-    # Master.GenerateValidationDataLoader()
-    # Master.TrainAgents(1,2)
+
 
 
 
@@ -156,24 +139,26 @@ if __name__ ==  '__main__':
     input_group.add_argument('--dir_model', type=str, help='Output directory of the training',default= parser.parse_args().dir_data+'/ALI_CNN_models_'+datetime.datetime.now().strftime("%Y_%d_%m"))
 
     #Environment
-    input_group.add_argument('-lm','--landmarks',nargs="+",type=str,help="Prepare the data for uper and/or lower landmark training (ex: u l cb)", default=["cb"])
+    input_group.add_argument('-lm','--landmarks',nargs="+",type=str,help="Prepare the data for uper and/or lower landmark training (ex: U L CB)", default=["CB"])
     input_group.add_argument('-sp', '--spacing', nargs="+", type=float, help='Spacing of the different scales', default=[2,0.3])
     
     #Agent
     input_group.add_argument('-fov', '--agent_FOV', nargs="+", type=float, help='Wanted crop size', default=[64,64,64])
     input_group.add_argument('-mvt','--movement', type=str, help='Number of posssible agent movement',default='6') # parser.parse_args().dir_data+
-    
+    input_group.add_argument('-sr', '--spawn_radius', type=int, help='Wanted crop size', default=30)
+
+
     #Training data
     input_group.add_argument('-bs', '--batch_size', type=int, help='Batch size', default=5)
-    input_group.add_argument('-ds', '--data_size', type=int, help='Size of the dataset', default=5000)
+    input_group.add_argument('-ds', '--data_size', type=int, help='Size of the dataset', default=50)
     input_group.add_argument('-duf', '--data_update_freq', type=int, help='Data update frequency', default=1)
     input_group.add_argument('-dur', '--data_update_ratio', type=float, help='Ratio of data to update', default=0.5)
     #Training param
-    input_group.add_argument('-mi', '--max_epoch', type=int, help='Number of training epocs', default=200)
-    input_group.add_argument('-vf', '--val_freq', type=int, help='Validation frequency', default=1)
+    input_group.add_argument('-mi', '--max_epoch', type=int, help='Number of training epocs', default=1000)
+    input_group.add_argument('-vf', '--val_freq', type=int, help='Validation frequency', default=2)
     input_group.add_argument('-tp', '--test_percentage', type=int, help='Percentage of data to keep for validation', default=20)
     input_group.add_argument('-lr', '--learning_rate', type=float, help='Learning rate', default=1e-4)
-    input_group.add_argument('-nw', '--nbr_worker', type=int, help='Number of worker', default=2)
+    input_group.add_argument('-nw', '--nbr_worker', type=int, help='Number of worker', default=1)
 
     args = parser.parse_args()
     

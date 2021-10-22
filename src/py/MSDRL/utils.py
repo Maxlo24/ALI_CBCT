@@ -4,6 +4,7 @@ import SimpleITK as sitk
 import itk
 import os
 import glob
+import torch
 
 from GlobalVar import*
 
@@ -18,8 +19,8 @@ def GetAgentLst(agents_param):
                 movements = agents_param["movements"],
                 env_dim = agents_param["dim"],
                 FOV=agents_param["FOV"],
-                start_pos_radius = 40,
-                verbose = True
+                start_pos_radius = agents_param["spawn_rad"],
+                verbose = agents_param["verbose"]
             )
             agent_lst.append(agt)
     return agent_lst
@@ -65,9 +66,9 @@ def GetTrainingEnvironementsAgents(environments_param,agents_param):
         for i,spacing in enumerate(environments_param["spacings"]):
             images_path.append(scan_lst[i][n])
         data["images"] = images_path
-        data["u"] = U_fcsv_lst[n]
-        data["l"] = L_fcsv_lst[n]
-        data["cb"] = CB_fcsv_lst[n]
+        data["U"] = U_fcsv_lst[n]
+        data["L"] = L_fcsv_lst[n]
+        data["CB"] = CB_fcsv_lst[n]
 
         data_lst.append(data)
 
@@ -79,7 +80,7 @@ def GetTrainingEnvironementsAgents(environments_param,agents_param):
         print("Generating Environement for :" , os.path.dirname(data["images"][0]))
         env = environments_param["type"](
             padding = np.array(agents_param["FOV"])/2+1,
-            verbose=True
+            verbose=environments_param["verbose"]
             )
         env.LoadImages(data["images"])
         for fcsv in agents_param["landmarks"]:
@@ -110,7 +111,7 @@ def GenPredictEnvironment(environments_param,agents_param):
         print("Generating Environement for :" , scan)
         env = environments_param["type"](
             padding = np.array(agents_param["FOV"])/2+1,
-            verbose=agents_param["verbose"]
+            verbose=environments_param["verbose"]
             )
         env.GenerateImages(scan,environments_param["spacings"])
 
@@ -318,12 +319,143 @@ def ReadFCSV(filePath):
     filePath
      path of the .fcsv file 
     """
-    Landmark_lst = []
+    Landmark_dic = {}
     with open(filePath, mode='r') as csv_file:
         csv_reader = csv.reader(csv_file)
         for row in csv_reader:
             if "#" not in row[0]:
                 landmark = {}
                 landmark["id"], landmark["x"], landmark["y"], landmark["z"], landmark["label"] = row[0], row[1], row[2], row[3], row[11]
-                Landmark_lst.append(landmark)
-    return Landmark_lst
+                Landmark_dic[row[11]] = landmark
+    return Landmark_dic
+
+
+def ReslutAccuracy(fiducial_dir):
+
+    patients = {}
+    normpath = os.path.normpath("/".join([fiducial_dir, '**', '']))
+    for img_fn in sorted(glob.iglob(normpath, recursive=True)):
+        if os.path.isfile(img_fn) and ".fcsv" in img_fn:
+            baseName = os.path.basename(img_fn)
+            patient = os.path.basename(os.path.dirname(img_fn))
+            if patient not in patients.keys():
+                patients[patient] = {"U":{},"L":{},"CB":{}}
+
+            if "_pred_" in baseName:
+                if "_U." in baseName :
+                    patients[patient]["U"]["pred"]=img_fn
+                elif "_L." in baseName :
+                    patients[patient]["L"]["pred"]=img_fn
+                elif "_CB." in baseName :
+                    patients[patient]["CB"]["pred"]=img_fn
+            else:
+                if "_U." in baseName :
+                    patients[patient]["U"]["target"]=img_fn
+                elif "_L." in baseName :
+                    patients[patient]["L"]["target"]=img_fn
+                elif "_CB." in baseName :
+                    patients[patient]["CB"]["target"]=img_fn
+
+
+    f = open(os.path.join(fiducial_dir,"Result.txt"),'w')
+    for patient,fiducials in patients.items():
+        print("Results for patient",patient)
+        f.write("Results for patient "+ str(patient)+"\n")
+
+        for group,targ_res in fiducials.items():
+            print(" ",group,"landmarks:")
+            f.write(" "+ str(group)+" landmarks:\n")
+            if "pred" in targ_res.keys():
+                target_lm_dic = ReadFCSV(targ_res["target"])
+                pred_lm_dic = ReadFCSV(targ_res["pred"])
+                for lm,t_data in target_lm_dic.items():
+                    if lm in pred_lm_dic.keys():
+                        a = np.array([float(t_data["x"]),float(t_data["y"]),float(t_data["z"])])
+                        p_data = pred_lm_dic[lm]
+                        b = np.array([float(p_data["x"]),float(p_data["y"]),float(p_data["z"])])
+                        # print(a,b)
+                        dist = np.linalg.norm(a-b)
+                        print("  ",lm,"error = ", dist)
+                        f.write("  "+ str(lm)+" error = "+str(dist)+"\n")
+            f.write("\n")
+        f.write("\n")
+    
+    f.close
+
+
+def SaveFiducialFromArray(data,scan_image,outpath,label_list):
+    """
+    Generate a fiducial file from an array with label
+
+    Parameters
+    ----------
+    data
+     array with the labels
+    scan_image
+     scan of referance
+    outpath
+     outpath of the fiducial path
+    label_list
+     liste of label associated with the array
+     """
+
+    print("Generating fiducial file at : ", os.path.basename(scan_image))
+    ref_size,ref_spacing,ref_origin,ref_direction = GetImageInfo(scan_image)
+    physical_origin = abs(ref_origin/ref_spacing)
+    print(ref_direction)
+
+    # print(physical_origin)
+
+    label_pos_lst = []
+    for i in range(len(label_list)):
+        label_pos = np.array(np.where(data==i+1))
+        label_pos = label_pos.tolist()
+        label_coords = np.array([label_pos[2][0],label_pos[1][0],label_pos[0][0]], dtype='float')
+        nbrPoint = 1
+        for j in range(1,len(label_pos[0])):
+            nbrPoint+=1
+            label_coords += np.array([label_pos[2][j],label_pos[1][j],label_pos[0][j]] , dtype='float')
+            # label_coords.append(coord)
+
+        label_coord = label_coords/nbrPoint #+ np.array([0.45,0.45,0.45])
+
+        label_pos = (label_coord-physical_origin)*ref_spacing
+        label_pos_lst.append({"label": label_list[i], "coord" : label_pos})
+        # print(label_pos)
+
+    fiducial_name = os.path.basename(scan_image).split(".")[0]
+    fiducial_name = fiducial_name.replace("scan","CBCT")
+    fiducial_name = fiducial_name.replace("or","CB")
+    fiducial_name += ".fcsv"
+
+    file_name = os.path.join(outpath,fiducial_name)
+    f = open(file_name,'w')
+    
+    f.write("# Markups fiducial file version = 4.11\n")
+    f.write("# CoordinateSystem = LPS\n")
+    f.write("# columns = id,x,y,z,ow,ox,oy,oz,vis,sel,lock,label,desc,associatedNodeID\n")
+    for id,element in enumerate(label_pos_lst):
+        f.write(str(id)+","+str(element["coord"][0])+","+str(element["coord"][1])+","+str(element["coord"][2])+",0,0,0,1,1,1,0,"+element["label"]+",,\n")
+    # # f.write( data + "\n")
+    f.close
+
+
+def CheckCrops(Master,agent):
+    Master.GeneratePosDataset("train",Master.max_train_memory_size)
+    Master.GeneratePosDataset("val",Master.max_val_memory_size)
+
+    if not os.path.exists("crop"):
+        os.makedirs("crop")
+
+    for key,value in Master.pos_dataset.items():
+        for k,v in value.items():
+            # print(v)
+            for n,dq in enumerate(v):
+                for dim,obj in enumerate(dq):
+                    # print(n,obj)
+                    arr = obj["env"].GetSample(n,agent.target,obj["coord"],agent.FOV,agent.movement_matrix)
+                    # print(arr)
+                    output = sitk.GetImageFromArray(arr["state"][0][:].type(torch.float32))
+                    writer = sitk.ImageFileWriter()
+                    writer.SetFileName(f"crop/test_{key}_{k}_{dim}_{n}.nii.gz")
+                    writer.Execute(output)

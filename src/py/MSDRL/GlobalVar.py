@@ -1,11 +1,16 @@
 import numpy as np
 
 LABELS = {
-    "u" : ['PNS','ANS','A','UR6apex','UR3apex','U1apex','UL3apex','UL6apex','UR6d','UR6m','UR3tip','UItip','UL3tip','UL6m','UL6d'],
+    "U" : ['PNS','ANS','A','UR6apex','UR3apex','U1apex','UL3apex','UL6apex','UR6d','UR6m','UR3tip','UItip','UL3tip','UL6m','UL6d'],
     # "l" : ['RCo','RGo','LR6apex','LR7apex','L1apex','Me','Gn','Pog','B','LL6apex','LL7apex','LGo','LCo','LR6d','LR6m','LItip','LL6m','LL6d'],
-    "l" : ['RCo','RGo','LR6apex','L1apex','Me','Gn','Pog','B','LL6apex','LGo','LCo','LR6d','LR6m','LItip','LL6m','LL6d'],
-    "cb" :['Ba','S','N']
+    "L" : ['RCo','RGo','LR6apex','L1apex','Me','Gn','Pog','B','LL6apex','LGo','LCo','LR6d','LR6m','LItip','LL6m','LL6d'],
+    "CB" :['Ba','S','N']
 }
+
+GROUPES = {}
+for group,labels in LABELS.items():
+    for label in labels:
+        GROUPES[label] = group
 
 MOVEMENT_MATRIX_6 = np.array([
     [1,0,0],  # MoveUp

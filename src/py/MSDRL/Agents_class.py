@@ -41,6 +41,7 @@ class DQNAgent :
         self.environement = environement
         self.target = targeted_landmark
         self.start_pos_radius = start_pos_radius
+        self.start_position = np.array([0,0,0], dtype=np.int16)
         self.position = np.array([0,0,0], dtype=np.int16)
         self.FOV = np.array(FOV, dtype=np.int16)
         self.movement_matrix = movements["mat"]
@@ -76,10 +77,11 @@ class DQNAgent :
     def SetRandomPos(self):
         if self.scale_state == 0:
             rand_coord = np.random.randint(1, self.environement.GetSize(self.scale_state), dtype=np.int16)
+            self.start_position = rand_coord
             # rand_coord = self.environement.GetLandmarkPos(self.scale_state,self.target)
         else:
             rand_coord = np.random.randint([1,1,1], self.start_pos_radius*2) - self.start_pos_radius
-            rand_coord = self.environement.GetLandmarkPos(self.scale_state,self.target) + rand_coord
+            rand_coord = self.start_position + rand_coord
             rand_coord = np.where(rand_coord<0, 0, rand_coord)
             rand_coord = rand_coord.astype(np.int16)
 
@@ -95,9 +97,13 @@ class DQNAgent :
         if self.scale_state < self.environement.dim -1 :
             self.GoToScale(self.scale_state + 1)
             scale_changed = True
+            self.start_position = self.position
         # else:
         #     OUT_WARNING()
         return scale_changed
+
+    def PredictAction(self):
+        return self.brain.Predict(self.scale_state,self.GetState())
         
     def Move(self, movement_idx):
         new_pos = self.position + self.movement_matrix[movement_idx]
@@ -142,9 +148,11 @@ class DQNAgent :
                 if self.verbose:
                     print("Landmark found at scale :",self.scale_state)
                     print("Agent pos = ", self.position, "Landmark pos = ", self.environement.GetLandmarkPos(self.scale_state,self.target))
-                # found = not self.UpScale()
+                scale_changed = self.UpScale()
+                found = not scale_changed
 
         print("Result :", self.position)
+        self.environement.AddPredictedLandmark(self.target,self.position)
 
     def Visited(self):
         visited = False
@@ -153,9 +161,6 @@ class DQNAgent :
             if np.array_equal(self.position,previous_pos):
                 visited = True
         return visited
-
-    def PredictAction(self):
-        return self.brain.Predict(self.scale_state,self.GetState())
 
 
 class RLAgent :

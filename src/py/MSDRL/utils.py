@@ -50,7 +50,7 @@ def GetTrainingEnvironementsAgents(environments_param,agents_param):
                     if "_"+str(spacing) in baseName:
                         scan_lst[i].append(img_fn)
 
-        if os.path.isfile(img_fn) and ".fcsv" in img_fn:
+        if os.path.isfile(img_fn) and ".mrk.json" in img_fn:
             baseName = os.path.basename(img_fn)
             if "_U." in baseName :
                 U_fcsv_lst.append(img_fn)
@@ -86,7 +86,7 @@ def GetTrainingEnvironementsAgents(environments_param,agents_param):
             )
         env.LoadImages(data["images"])
         for fcsv in agents_param["landmarks"]:
-            env.LoadLandmarks(data[fcsv])
+            env.LoadJsonLandmarks(data[fcsv])
 
         environement_lst.append(env)
 
@@ -353,8 +353,11 @@ def SaveJsonFromFcsv(file_path,out_path):
             "positionStatus": "preview"
         }
         lm_lst.append(controle_point)
+    WriteJson(lm_lst,out_path)
 
-
+def WriteJson(lm_lst,out_path):
+    false = False
+    true = True
     file = {
     "@schema": "https://raw.githubusercontent.com/slicer/slicer/master/Modules/Loadable/Markups/Resources/Schema/markups-schema-v1.0.0.json#",
     "markups": [

@@ -5,6 +5,7 @@ import SimpleITK as sitk
 import numpy as np
 import torch
 import os
+import json
 
 # ----- MONAI ------
 # from monai.losses import DiceCELoss
@@ -107,7 +108,7 @@ class Environement :
     def AddPredictedLandmark(self,lm_id,lm_pos):
         self.predicted_landmarks[lm_id] = lm_pos
 
-    def LoadLandmarks(self,fiducial_path):
+    def LoadFCSVLandmarks(self,fiducial_path):
         fcsv_lm_dic = ReadFCSV(fiducial_path)
         for lm,data in fcsv_lm_dic.items() :
             lm_ph_coord = np.array([float(data["z"]),float(data["y"]),float(data["x"])])
@@ -115,6 +116,20 @@ class Environement :
                 lm_coord = (lm_ph_coord+ abs(self.origins[i]))/self.spacings[i]
                 lm_coord = lm_coord.astype(int)
                 self.dim_landmarks[i][lm] = lm_coord
+
+    def LoadJsonLandmarks(self,fiducial_path):
+        with open(fiducial_path) as f:
+            data = json.load(f)
+
+        markups = data["markups"][0]["controlPoints"]
+        for markup in markups:
+            lm_ph_coord = np.array([markup["position"][2],markup["position"][1],markup["position"][0]])
+            for i in range(self.dim):
+                lm_coord = (lm_ph_coord+ abs(self.origins[i]))/self.spacings[i]
+                lm_coord = lm_coord.astype(int)
+                self.dim_landmarks[i][markup["label"]] = lm_coord
+
+        # print(markups)
 
     def LandmarkIsPresent(self,landmark):
         if landmark in self.dim_landmarks[0].keys():

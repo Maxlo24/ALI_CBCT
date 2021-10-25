@@ -70,35 +70,15 @@ def main(args):
         print("ERROR : folder have missing files", file=sys.stderr)
         raise
 
-    # if len(scan_lst) != len(U_fcsv_lst) or len(scan_lst) != len(L_fcsv_lst) or len(L_fcsv_lst) != len(CB_fcsv_lst):
-
-    #     print("ERROR : folder dont have the same number of scans , _U.fcsv, _L.fcsv files and  _CB.fcsv.", file=sys.stderr)
-    #     print("Lead : make sure the fiducial files end like this : '_U.fcsv and' , '_L.fcsv' (no space or missing '.' )")
-    #     print('       Scan number : ',len(scan_lst))
-    #     print('       _U.fcsv number : ',len(U_fcsv_lst))
-    #     print('       _L.fcsv number : ',len(L_fcsv_lst))
-    #     print('       _CB.fcsv number : ',len(L_fcsv_lst))
-        
-    #     raise 
-
     for patient,data in patients.items():
 
         scan = data["scan"]
-        U_lm = data["U"]
-        L_lm = data["L"]
-        CB_lm = data["CB"]
-        
-        # CorrectCSV(U_lm)
-        # CorrectCSV(L_lm)
-        # CorrectCSV(CB_lm)
-
 
         patient_dirname = os.path.basename(data["dir"]).split(" ")[0]
         ScanOutpath = os.path.normpath("/".join([args.out,patient_dirname]))
 
         if not os.path.exists(ScanOutpath):
             os.makedirs(ScanOutpath)
-
 
         scan_basename = os.path.basename(scan)
         scan_name = scan_basename.split(".")

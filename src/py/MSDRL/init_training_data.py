@@ -81,45 +81,46 @@ def main(args):
         
     #     raise 
 
-    # for patient,data in patients.items():
+    for patient,data in patients.items():
 
-    #     scan = data["scan"]
-    #     U_lm = data["U"]
-    #     L_lm = data["L"]
-    #     CB_lm = data["CB"]
+        scan = data["scan"]
+        U_lm = data["U"]
+        L_lm = data["L"]
+        CB_lm = data["CB"]
         
-    #     CorrectCSV(U_lm)
-    #     CorrectCSV(L_lm)
-    #     CorrectCSV(CB_lm)
+        # CorrectCSV(U_lm)
+        # CorrectCSV(L_lm)
+        # CorrectCSV(CB_lm)
 
 
-    #     patient_dirname = os.path.basename(data["dir"]).split(" ")[0]
-    #     ScanOutpath = os.path.normpath("/".join([args.out,patient_dirname]))
+        patient_dirname = os.path.basename(data["dir"]).split(" ")[0]
+        ScanOutpath = os.path.normpath("/".join([args.out,patient_dirname]))
 
-    #     if not os.path.exists(ScanOutpath):
-    #         os.makedirs(ScanOutpath)
+        if not os.path.exists(ScanOutpath):
+            os.makedirs(ScanOutpath)
 
 
-    #     scan_basename = os.path.basename(scan)
-    #     scan_name = scan_basename.split(".")
+        scan_basename = os.path.basename(scan)
+        scan_name = scan_basename.split(".")
 
-    #     for sp in args.spacing:
-    #         new_name = ""
+        for sp in args.spacing:
+            new_name = ""
 
-    #         for i,element in enumerate(scan_name):
-    #             if i == 0:
-    #                 new_name = patient + "_scan_" + str(sp)
-    #             else:
-    #                 new_name += "." + element
+            for i,element in enumerate(scan_name):
+                if i == 0:
+                    new_name = patient + "_scan_" + str(sp)
+                else:
+                    new_name += "." + element
             
-    #         SetSpacing(scan,[sp,sp,sp],os.path.join(ScanOutpath,new_name))
+            SetSpacing(scan,[sp,sp,sp],os.path.join(ScanOutpath,new_name))
 
-    #     if ".fcsv" in U_lm:
-    #         SaveJsonFromFcsv(U_lm,os.path.join(ScanOutpath,patient + "_lm_U.mrk.json"))
+        for lm in ["U","L","CB"]:
+            if ".fcsv" in data[lm]:
+                CorrectCSV(data[lm])
+                SaveJsonFromFcsv(data[lm],os.path.join(ScanOutpath,patient + "_lm_"+lm+".mrk.json"))
+            else:
+                copyfile(data[lm],os.path.join(ScanOutpath,patient + "_lm_"+lm+".mrk.json"))
 
-    #     copyfile(U_lm,os.path.join(ScanOutpath,patient + "_lm_U.fcsv"))
-    #     copyfile(L_lm,os.path.join(ScanOutpath,patient + "_lm_L.fcsv"))
-    #     copyfile(CB_lm,os.path.join(ScanOutpath,patient + "_lm_CB.fcsv"))
 
 
 

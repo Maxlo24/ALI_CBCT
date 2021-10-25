@@ -5,6 +5,8 @@ import itk
 import os
 import glob
 import torch
+import json
+
 
 from GlobalVar import*
 
@@ -325,10 +327,75 @@ def ReadFCSV(filePath):
         for row in csv_reader:
             if "#" not in row[0]:
                 landmark = {}
-                landmark["id"], landmark["x"], landmark["y"], landmark["z"], landmark["label"] = row[0], row[1], row[2], row[3], row[11]
+                landmark["id"], landmark["x"], landmark["y"], landmark["z"], landmark["label"] = row[0], float(row[1]), float(row[2]), float(row[3]), row[11]
                 Landmark_dic[row[11]] = landmark
     return Landmark_dic
 
+def SaveJsonFromFcsv(file_path,out_path):
+    lm_lst = []
+    groupe_data = ReadFCSV(file_path)
+
+    false = False
+    true = True
+    id = 0
+    for landmark,data in groupe_data.items():
+        id+=1
+        controle_point = {
+            "id": str(id),
+            "label": landmark,
+            "description": "",
+            "associatedNodeID": "",
+            "position": [data["x"], data["y"], data["z"]],
+            "orientation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0],
+            "selected": true,
+            "locked": true,
+            "visibility": true,
+            "positionStatus": "preview"
+        }
+        lm_lst.append(controle_point)
+
+
+    file = {
+    "@schema": "https://raw.githubusercontent.com/slicer/slicer/master/Modules/Loadable/Markups/Resources/Schema/markups-schema-v1.0.0.json#",
+    "markups": [
+        {
+            "type": "Fiducial",
+            "coordinateSystem": "LPS",
+            "locked": false,
+            "labelFormat": "%N-%d",
+            "controlPoints": lm_lst,
+            "measurements": [],
+            "display": {
+                "visibility": false,
+                "opacity": 1.0,
+                "color": [0.4, 1.0, 0.0],
+                "selectedColor": [1.0, 0.5000076295109484, 0.5000076295109484],
+                "activeColor": [0.4, 1.0, 0.0],
+                "propertiesLabelVisibility": false,
+                "pointLabelsVisibility": true,
+                "textScale": 3.0,
+                "glyphType": "Sphere3D",
+                "glyphScale": 1.0,
+                "glyphSize": 5.0,
+                "useGlyphScale": true,
+                "sliceProjection": false,
+                "sliceProjectionUseFiducialColor": true,
+                "sliceProjectionOutlinedBehindSlicePlane": false,
+                "sliceProjectionColor": [1.0, 1.0, 1.0],
+                "sliceProjectionOpacity": 0.6,
+                "lineThickness": 0.2,
+                "lineColorFadingStart": 1.0,
+                "lineColorFadingEnd": 10.0,
+                "lineColorFadingSaturation": 1.0,
+                "lineColorFadingHueOffset": 0.0,
+                "handlesInteractive": false,
+                "snapMode": "toVisibleSurface"
+            }
+        }
+    ]
+    }
+    with open(out_path, 'w', encoding='utf-8') as f:
+        json.dump(file, f, ensure_ascii=False, indent=4)
 
 def ReslutAccuracy(fiducial_dir):
 
@@ -438,9 +505,7 @@ def SaveFiducialFromArray(data,scan_image,outpath,label_list):
         f.write(str(id)+","+str(element["coord"][0])+","+str(element["coord"][1])+","+str(element["coord"][2])+",0,0,0,1,1,1,0,"+element["label"]+",,\n")
     # # f.write( data + "\n")
     f.close
-
-def SaveJsonFromFcsv(file_path,out_path):
-    return
+    
 
 def CheckCrops(Master,agent):
     Master.GeneratePosDataset("train",Master.max_train_memory_size)

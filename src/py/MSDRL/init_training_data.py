@@ -9,97 +9,117 @@ from shutil import copyfile
 
 def main(args):
 
-    scan_lst = []
-    U_fcsv_lst = []
-    L_fcsv_lst = []
-    CB_fcsv_lst = []
-    
-
     print("Reading folder : ", args.input_dir)
     print("Selected spacings : ", args.spacing)
+
+    patients = {}
     		
     normpath = os.path.normpath("/".join([args.input_dir, '**', '']))
     for img_fn in sorted(glob.iglob(normpath, recursive=True)):
         #  print(img_fn)
-        if os.path.isfile(img_fn) and True in [ext in img_fn for ext in [".nrrd", ".nrrd.gz", ".nii", ".nii.gz", ".gipl", ".gipl.gz"]]:
-            img_obj = {}
-            img_obj["img"] = img_fn
-            baseName = os.path.basename(img_fn)
-            if True in [scan in baseName for scan in ["scan","Scan"]]:
-                scan_lst.append(img_obj)
+        basename = os.path.basename(img_fn)
 
-        if os.path.isfile(img_fn) and ".fcsv" in img_fn:
-            img_obj = {}
-            img_obj["file"] = img_fn
-            baseName = os.path.basename(img_fn)
-            if True in [char in baseName for char in ["_U.", "_U_","_max_","_Max_"]] :
-                U_fcsv_lst.append(img_obj)
-            elif True in [char in baseName for char in ["_L.", "_L_","_mand_","_Mand_"]] :
-                L_fcsv_lst.append(img_obj)
-            elif True in [char in baseName for char in ["_CB.", "_CB_"]] :
-                CB_fcsv_lst.append(img_obj)
-                
+        if True in [ext in img_fn for ext in [".nrrd", ".nrrd.gz", ".nii", ".nii.gz", ".gipl", ".gipl.gz"]]:
+            file_name = basename.split(".")[0]
+            elements = file_name.split("_")
+            patient = elements[0] + "_" + elements[1]
+            if patient not in patients.keys():
+                patients[patient] = {"dir": os.path.dirname(img_fn)}
+
+            if True in [scan in basename for scan in ["scan","Scan"]]:
+                patients[patient]["scan"] = img_fn
+
+        if True in [scan in img_fn for scan in [".fcsv",".mrk.json"]]:
+            file_name = basename.split(".")[0]
+            elements = file_name.split("_")
+            patient = elements[0] + "_" + elements[1]
+            if patient not in patients.keys():
+                patients[patient] = {"dir": os.path.dirname(img_fn)}
+
+            if True in [char in basename for char in ["_U.", "_U_","_max_","_Max_"]] :
+                patients[patient]["U"] = img_fn
+            elif True in [char in basename for char in ["_L.", "_L_","_mand_","_Mand_"]] :
+                patients[patient]["L"] = img_fn
+            elif True in [char in basename for char in ["_CB.", "_CB_"]] :
+                patients[patient]["CB"] = img_fn
             else:
                 print("----> Unrecognise fiducial file found at :", img_fn)
         elif os.path.isfile(img_fn) and "fcsv" in img_fn:
-            print("----> Not correct fiducial file found at :", img_fn)
+            print("----> Unrecognise file found at :", img_fn)
 
             
     # if not os.path.exists(SegOutpath):
     #     os.makedirs(SegOutpath)
     
+    error = False
+    for patient,data in patients.items():
+        if "scan" not in data.keys():
+            print("Missing scan for patient :",patient,"at",data["dir"])
+            error = True
+        if "U" not in data.keys():
+            print("Missing U landmark for patient :",patient,"at",data["dir"])
+            error = True
+        if "L" not in data.keys():
+            print("Missing L landmark for patient :",patient,"at",data["dir"])
+            error = True
+        if "CB" not in data.keys():
+            print("Missing CB landmark for patient :",patient,"at",data["dir"])
+            error = True
 
-    if len(scan_lst) != len(U_fcsv_lst) or len(scan_lst) != len(L_fcsv_lst) or len(L_fcsv_lst) != len(CB_fcsv_lst):
+    if error:
+        print("ERROR : folder have missing files", file=sys.stderr)
+        raise
 
-        print("ERROR : folder dont have the same number of scans , _U.fcsv, _L.fcsv files and  _CB.fcsv.", file=sys.stderr)
-        print("Lead : make sure the fiducial files end like this : '_U.fcsv and' , '_L.fcsv' (no space or missing '.' )")
-        print('       Scan number : ',len(scan_lst))
-        print('       _U.fcsv number : ',len(U_fcsv_lst))
-        print('       _L.fcsv number : ',len(L_fcsv_lst))
-        print('       _CB.fcsv number : ',len(L_fcsv_lst))
+    # if len(scan_lst) != len(U_fcsv_lst) or len(scan_lst) != len(L_fcsv_lst) or len(L_fcsv_lst) != len(CB_fcsv_lst):
+
+    #     print("ERROR : folder dont have the same number of scans , _U.fcsv, _L.fcsv files and  _CB.fcsv.", file=sys.stderr)
+    #     print("Lead : make sure the fiducial files end like this : '_U.fcsv and' , '_L.fcsv' (no space or missing '.' )")
+    #     print('       Scan number : ',len(scan_lst))
+    #     print('       _U.fcsv number : ',len(U_fcsv_lst))
+    #     print('       _L.fcsv number : ',len(L_fcsv_lst))
+    #     print('       _CB.fcsv number : ',len(L_fcsv_lst))
         
-        raise 
+    #     raise 
 
-    for n in range(0,len(scan_lst)):
+    # for patient,data in patients.items():
 
-        scan = scan_lst[n]
-
-        # print(scan_basename)
-        U_lm = U_fcsv_lst[n]
-        L_lm = L_fcsv_lst[n]
-        CB_lm = CB_fcsv_lst[n]
+    #     scan = data["scan"]
+    #     U_lm = data["U"]
+    #     L_lm = data["L"]
+    #     CB_lm = data["CB"]
         
-        CorrectCSV(U_lm["file"])
-        CorrectCSV(L_lm["file"])
-        CorrectCSV(CB_lm["file"])
+    #     CorrectCSV(U_lm)
+    #     CorrectCSV(L_lm)
+    #     CorrectCSV(CB_lm)
 
 
-        scan_dirname = os.path.basename(os.path.dirname(scan["img"])).split(" ")[0]
-        scan_basename = os.path.basename(scan["img"])
-        scan_name = scan_basename.split(".")
+    #     patient_dirname = os.path.basename(data["dir"]).split(" ")[0]
+    #     ScanOutpath = os.path.normpath("/".join([args.out,patient_dirname]))
 
-        ScanOutpath = os.path.normpath("/".join([args.out,scan_dirname]))
+    #     if not os.path.exists(ScanOutpath):
+    #         os.makedirs(ScanOutpath)
 
-        if not os.path.exists(ScanOutpath):
-            os.makedirs(ScanOutpath)
 
-        elements = scan_name[0].split("_")
-        patient = elements[0] + "_" + elements[1]
+    #     scan_basename = os.path.basename(scan)
+    #     scan_name = scan_basename.split(".")
 
-        for sp in args.spacing:
-            new_name = ""
+    #     for sp in args.spacing:
+    #         new_name = ""
 
-            for i,element in enumerate(scan_name):
-                if i == 0:
-                    new_name = patient + "_scan_" + str(sp)
-                else:
-                    new_name += "." + element
+    #         for i,element in enumerate(scan_name):
+    #             if i == 0:
+    #                 new_name = patient + "_scan_" + str(sp)
+    #             else:
+    #                 new_name += "." + element
             
-            SetSpacing(scan["img"],[sp,sp,sp],os.path.join(ScanOutpath,new_name))
+    #         SetSpacing(scan,[sp,sp,sp],os.path.join(ScanOutpath,new_name))
 
-        copyfile(U_lm["file"],os.path.join(ScanOutpath,patient + "_lm_U.fcsv"))
-        copyfile(L_lm["file"],os.path.join(ScanOutpath,patient + "_lm_L.fcsv"))
-        copyfile(CB_lm["file"],os.path.join(ScanOutpath,patient + "_lm_CB.fcsv"))
+    #     if ".fcsv" in U_lm:
+    #         SaveJsonFromFcsv(U_lm,os.path.join(ScanOutpath,patient + "_lm_U.mrk.json"))
+
+    #     copyfile(U_lm,os.path.join(ScanOutpath,patient + "_lm_U.fcsv"))
+    #     copyfile(L_lm,os.path.join(ScanOutpath,patient + "_lm_L.fcsv"))
+    #     copyfile(CB_lm,os.path.join(ScanOutpath,patient + "_lm_CB.fcsv"))
 
 
 

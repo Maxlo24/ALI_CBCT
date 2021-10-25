@@ -439,6 +439,8 @@ def SaveFiducialFromArray(data,scan_image,outpath,label_list):
     # # f.write( data + "\n")
     f.close
 
+def SaveJsonFromFcsv(file_path,out_path):
+    return
 
 def CheckCrops(Master,agent):
     Master.GeneratePosDataset("train",Master.max_train_memory_size)

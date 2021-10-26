@@ -250,6 +250,16 @@ class DQN(nn.Module):
         self.fc2 = nn.Linear(256, 128)
         self.fc3 = nn.Linear(128, out_channels)
 
+
+        nn.init.xavier_uniform_(self.conv1)
+        nn.init.xavier_uniform_(self.conv2)
+        nn.init.xavier_uniform_(self.conv3)
+        nn.init.xavier_uniform_(self.fc0)
+        nn.init.xavier_uniform_(self.fc1)
+        nn.init.xavier_uniform_(self.fc2)
+        nn.init.xavier_uniform_(self.fc3)
+
+
     def forward(self,x):
         # print(x.size())
         # x = self.norm(x)

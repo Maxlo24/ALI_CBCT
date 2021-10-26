@@ -50,7 +50,7 @@ def main(args):
     agent_lst = GetAgentLst(agents_param)
     brain_lst = GetBrain(args.dir_model)
     # environement_lst = [environement_lst[0]]
-    agent_lst = [agent_lst[2]]
+    agent_lst = [agent_lst[0]]
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -67,10 +67,11 @@ def main(args):
         agent.SetBrain(brain)
 
     for environment in environement_lst:
+        print(environment.images_path[0])
         for agent in agent_lst:
             agent.SetEnvironement(environment)
             agent.Search()
-            PlotAgentPath(agent)
+            # PlotAgentPath(agent)
         environment.SavePredictedLandmarks()
         
 
@@ -84,7 +85,7 @@ def main(args):
 
     
     
-    ReslutAccuracy(args.dir_scans)
+    # ReslutAccuracy(args.dir_scans)
 
 
 

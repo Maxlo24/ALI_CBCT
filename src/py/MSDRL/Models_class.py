@@ -251,13 +251,13 @@ class DQN(nn.Module):
         self.fc3 = nn.Linear(128, out_channels)
 
 
-        nn.init.xavier_uniform_(self.conv1)
-        nn.init.xavier_uniform_(self.conv2)
-        nn.init.xavier_uniform_(self.conv3)
-        nn.init.xavier_uniform_(self.fc0)
-        nn.init.xavier_uniform_(self.fc1)
-        nn.init.xavier_uniform_(self.fc2)
-        nn.init.xavier_uniform_(self.fc3)
+        nn.init.xavier_uniform_(self.conv1.weight)
+        nn.init.xavier_uniform_(self.conv2.weight)
+        nn.init.xavier_uniform_(self.conv3.weight)
+        nn.init.xavier_uniform_(self.fc0.weight)
+        nn.init.xavier_uniform_(self.fc1.weight)
+        nn.init.xavier_uniform_(self.fc2.weight)
+        nn.init.xavier_uniform_(self.fc3.weight)
 
 
     def forward(self,x):

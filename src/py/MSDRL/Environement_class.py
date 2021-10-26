@@ -22,7 +22,9 @@ from monai.transforms import (
 from utils import(
     ReadFCSV,
     SetSpacing,
-    ItkToSitk
+    ItkToSitk,
+    GenControlePoint,
+    WriteJson
 )
 
 # #####################################
@@ -175,11 +177,11 @@ class Environement :
         min_coord = [0,0,0]
         max_coord = self.GetSize(dim)
 
-        close_to_lm = 1
+        close_to_lm = 0
         if dim == 0:
             close_to_lm = np.random.rand()
 
-        if close_to_lm <= 0.10:
+        if close_to_lm >= 0.2:
             rand_coord = np.random.randint(1, self.GetSize(dim), dtype=np.int16)
         else:
             rand_coord = np.random.randint([1,1,1], radius*2) - radius
@@ -232,17 +234,26 @@ class Environement :
             scan_name = os.path.basename(self.images_path[-1]).split(".")
             elements = scan_name[0].split("_")
             patient = elements[0] + "_" + elements[1]
-            fiducial_name = patient + "_pred_lm_"+group+".fcsv"
-            # print(fiducial_name)
+            json_name = patient + "_pred_lm_"+group+".mrk.json"
 
-            file_name = os.path.join(os.path.dirname(self.images_path[0]),fiducial_name)
-            f = open(file_name,'w')
+            file_path = os.path.join(os.path.dirname(self.images_path[0]),json_name)
+            groupe_data = {}
+            for lm in list:
+                groupe_data[lm["label"]] = {"x":lm["coord"][0],"y":lm["coord"][1],"z":lm["coord"][2]}
+
+            lm_lst = GenControlePoint(groupe_data)
+            WriteJson(lm_lst,file_path)
+
+            # fiducial_name = patient + "_pred_lm_"+group+".fcsv"
+            # # print(fiducial_name)
+
+            # file_name = os.path.join(os.path.dirname(self.images_path[0]),fiducial_name)
+            # f = open(file_name,'w')
             
-            f.write("# Markups fiducial file version = 4.11\n")
-            f.write("# CoordinateSystem = LPS\n")
-            f.write("# columns = id,x,y,z,ow,ox,oy,oz,vis,sel,lock,label,desc,associatedNodeID\n")
-            for id,element in enumerate(list):
-                f.write(str(id)+","+str(element["coord"][0])+","+str(element["coord"][1])+","+str(element["coord"][2])+",0,0,0,1,1,1,0,"+element["label"]+",,\n")
-            # # f.write( data + "\n")
-            f.close
-
+            # f.write("# Markups fiducial file version = 4.11\n")
+            # f.write("# CoordinateSystem = LPS\n")
+            # f.write("# columns = id,x,y,z,ow,ox,oy,oz,vis,sel,lock,label,desc,associatedNodeID\n")
+            # for id,element in enumerate(list):
+            #     f.write(str(id)+","+str(element["coord"][0])+","+str(element["coord"][1])+","+str(element["coord"][2])+",0,0,0,1,1,1,0,"+element["label"]+",,\n")
+            # # # f.write( data + "\n")
+            # f.close

@@ -5,6 +5,9 @@ import torch.nn.functional as F
 import datetime
 import os
 
+import torchvision
+from torch.utils.tensorboard import SummaryWriter
+
 from torch import nn
 from tqdm.std import tqdm
 # from torchvision import models
@@ -24,9 +27,15 @@ class Brain:
         batch_size = 10,
         verbose = False
     ) -> None:
+        self.network_type = network_type
+        self.in_channels = in_channels
+        self.in_size = in_size
+        self.out_channels = out_channels
+
         self.verbose = verbose
         self.device = device
         self.batch_size = batch_size
+        self.learning_rate = learning_rate
 
         networks = []
         global_epoch = []
@@ -71,6 +80,24 @@ class Brain:
         self.model_dirs = models_dirs
         self.model_name = model_name
 
+        # self.writer = SummaryWriter(models_dirs[0]+'/runs')
+
+    def ResetNet(self,n):
+        net = self.network_type(
+            in_channels = self.in_channels,
+            in_size = self.in_size,
+            out_channels = self.out_channels,
+        )
+        net.to(self.device)
+        self.networks[n] = net
+        self.optimizers[n] = optim.Adam(net.parameters(), lr=self.learning_rate)
+        self.epoch_losses[n] = []
+        self.validation_metrics[n] = []
+        self.best_metrics[n] = 0
+        self.global_epoch[n] = 0
+        self.best_epoch[n] = 0
+
+
     def Predict(self,dim,state):
         network = self.networks[dim]
         network.eval()
@@ -99,6 +126,11 @@ class Brain:
             # print(batch["state"].size(),batch["target"].size())
             # print(torch.min(batch["state"]),torch.max(batch["state"]) , batch["state"].type())
             input,target = batch["state"].type(torch.float32).to(self.device),batch["target"].to(self.device)
+            
+            
+            # img_grid = torchvision.utils.make_grid(batch["state"])
+            # self.writer.add_image('Crop of network '+str(n)+' at epoch ' + str(self.global_epoch[n]),img_grid)
+            
             optimizer.zero_grad()
             y = network(input) 
             loss = self.loss_fn(y,target)
@@ -215,8 +247,8 @@ class DQN(nn.Module):
 
         self.fc0 = nn.Linear(128*6*6*6,512)
         self.fc1 = nn.Linear(512, 256)
-        # self.fc2 = nn.Linear(256, 128)
-        self.fc3 = nn.Linear(256, out_channels)
+        self.fc2 = nn.Linear(256, 128)
+        self.fc3 = nn.Linear(128, out_channels)
 
     def forward(self,x):
         # print(x.size())
@@ -230,7 +262,7 @@ class DQN(nn.Module):
         x = torch.flatten(x, 1)
         x = F.relu(self.fc0(x))
         x = F.relu(self.fc1(x))
-        # x = F.relu(self.fc2(x))
+        x = F.relu(self.fc2(x))
         x = F.relu(self.fc3(x))
         output = x #F.softmax(self.fc3(x), dim=1)
         return output

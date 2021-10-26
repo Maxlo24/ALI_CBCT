@@ -85,8 +85,8 @@ def GetTrainingEnvironementsAgents(environments_param,agents_param):
             verbose=environments_param["verbose"]
             )
         env.LoadImages(data["images"])
-        for fcsv in agents_param["landmarks"]:
-            env.LoadJsonLandmarks(data[fcsv])
+        for lm in agents_param["landmarks"]:
+            env.LoadJsonLandmarks(data[lm])
 
         environement_lst.append(env)
 
@@ -332,9 +332,12 @@ def ReadFCSV(filePath):
     return Landmark_dic
 
 def SaveJsonFromFcsv(file_path,out_path):
-    lm_lst = []
     groupe_data = ReadFCSV(file_path)
+    lm_lst = GenControlePoint(groupe_data)
+    WriteJson(lm_lst,out_path)
 
+def GenControlePoint(groupe_data):
+    lm_lst = []
     false = False
     true = True
     id = 0
@@ -353,7 +356,8 @@ def SaveJsonFromFcsv(file_path,out_path):
             "positionStatus": "preview"
         }
         lm_lst.append(controle_point)
-    WriteJson(lm_lst,out_path)
+
+    return lm_lst
 
 def WriteJson(lm_lst,out_path):
     false = False
@@ -399,6 +403,8 @@ def WriteJson(lm_lst,out_path):
     }
     with open(out_path, 'w', encoding='utf-8') as f:
         json.dump(file, f, ensure_ascii=False, indent=4)
+
+    f.close
 
 def ReslutAccuracy(fiducial_dir):
 

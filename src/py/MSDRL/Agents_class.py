@@ -61,6 +61,8 @@ class DQNAgent :
         self.position_mem = position_mem
         self.position_shortmem = position_shortmem
 
+        self.search_atempt = 0
+
 
     def SetEnvironement(self, environement): self.environement = environement
 
@@ -73,6 +75,7 @@ class DQNAgent :
     def GoToScale(self,scale=0):
         self.position = (self.position*(self.environement.GetSpacing(self.scale_state)/self.environement.GetSpacing(scale))).astype(np.int16)
         self.scale_state = scale
+        self.search_atempt = 0
 
     def SetRandomPos(self):
         if self.scale_state == 0:
@@ -109,12 +112,13 @@ class DQNAgent :
         new_pos = self.position + self.movement_matrix[movement_idx]
         if new_pos.all() > 0 and (new_pos < self.environement.GetSize(self.scale_state)).all():
             self.position = new_pos
-            if self.verbose:
-                print("Moving ", self.movement_id[movement_idx])
+            # if self.verbose:
+            #     print("Moving ", self.movement_id[movement_idx])
         else:
             OUT_WARNING()
             self.ClearShortMem()
             self.SetRandomPos()
+            self.search_atempt +=1
 
     def Train(self, data, dim):
         if self.verbose:
@@ -150,6 +154,10 @@ class DQNAgent :
                     print("Agent pos = ", self.position, "Landmark pos = ", self.environement.GetLandmarkPos(self.scale_state,self.target))
                 scale_changed = self.UpScale()
                 found = not scale_changed
+            if self.search_atempt > 2:
+                print(self.target, "landmark not found")
+                self.search_atempt = 0
+                return -1
 
         print("Result :", self.position)
         self.environement.AddPredictedLandmark(self.target,self.position)

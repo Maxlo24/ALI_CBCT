@@ -140,7 +140,7 @@ if __name__ ==  '__main__':
 
     #Environment
     input_group.add_argument('-lm','--landmarks',nargs="+",type=str,help="Prepare the data for uper and/or lower landmark training (ex: U L CB)", default=["CB"])
-    input_group.add_argument('-sp', '--spacing', nargs="+", type=float, help='Spacing of the different scales', default=[2,0.3])
+    input_group.add_argument('-sp', '--spacing', nargs="+", type=float, help='Spacing of the different scales', default=[1,0.3])
     
     #Agent
     input_group.add_argument('-fov', '--agent_FOV', nargs="+", type=float, help='Wanted crop size', default=[64,64,64])
@@ -149,7 +149,7 @@ if __name__ ==  '__main__':
 
 
     #Training data
-    input_group.add_argument('-bs', '--batch_size', type=int, help='Batch size', default=100)
+    input_group.add_argument('-bs', '--batch_size', type=int, help='Batch size', default=250)
     input_group.add_argument('-ds', '--data_size', type=int, help='Size of the dataset', default=50000)
     input_group.add_argument('-duf', '--data_update_freq', type=int, help='Data update frequency', default=1)
     input_group.add_argument('-dur', '--data_update_ratio', type=float, help='Ratio of data to update', default=0.5)

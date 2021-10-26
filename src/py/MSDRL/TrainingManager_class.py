@@ -100,8 +100,10 @@ class TrainingMaster :
 
         for key in self.s_env.keys():
             print(key,"environments :")
+            lst = []
             for env in self.s_env[key]:
-                print(os.path.basename(os.path.dirname(env.images_path[0])))
+                lst.append(os.path.basename(os.path.dirname(env.images_path[0])))
+            print(lst)
 
     def GeneratePosDataset(self,key,size):
         data_on_each_env = int(size/len(self.s_env[key])) + 1

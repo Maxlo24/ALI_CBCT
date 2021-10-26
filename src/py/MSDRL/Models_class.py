@@ -204,7 +204,7 @@ class Brain:
                 print("Model Was Saved ! Current Best Avg. metric: {} Current Avg. metric: {}".format(self.best_metrics[n], metric))
             else:
                 print("Model Was Not Saved ! Current Best Avg. metric: {} Current Avg. metric: {}".format(self.best_metrics[n], metric))
-    
+        print()
     def LoadModels(self,model_lst):
         for n,net in enumerate(self.networks):
             print("Loading model", model_lst[n])

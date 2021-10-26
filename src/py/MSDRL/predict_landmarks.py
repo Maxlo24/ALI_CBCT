@@ -50,7 +50,7 @@ def main(args):
     agent_lst = GetAgentLst(agents_param)
     brain_lst = GetBrain(args.dir_model)
     # environement_lst = [environement_lst[0]]
-    agent_lst = [agent_lst[0]]
+    # agent_lst = [agent_lst[0]]
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -83,9 +83,7 @@ def main(args):
     #                 e.AddPredictedLandmark(lm,e.GetLandmarkPos(1,lm))
     #                 e.SavePredictedLandmarks()
 
-    
-    
-    # ReslutAccuracy(args.dir_scans)
+    ReslutAccuracy(args.dir_scans)
 
 
 

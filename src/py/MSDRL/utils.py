@@ -406,12 +406,12 @@ def WriteJson(lm_lst,out_path):
 
     f.close
 
-def ReslutAccuracy(fiducial_dir):
+def  ReslutAccuracy(fiducial_dir):
 
     patients = {}
     normpath = os.path.normpath("/".join([fiducial_dir, '**', '']))
     for img_fn in sorted(glob.iglob(normpath, recursive=True)):
-        if os.path.isfile(img_fn) and ".fcsv" in img_fn:
+        if os.path.isfile(img_fn) and ".mrk.json" in img_fn:
             baseName = os.path.basename(img_fn)
             patient = os.path.basename(os.path.dirname(img_fn))
             if patient not in patients.keys():
@@ -442,8 +442,8 @@ def ReslutAccuracy(fiducial_dir):
             print(" ",group,"landmarks:")
             f.write(" "+ str(group)+" landmarks:\n")
             if "pred" in targ_res.keys():
-                target_lm_dic = ReadFCSV(targ_res["target"])
-                pred_lm_dic = ReadFCSV(targ_res["pred"])
+                target_lm_dic = ReadJson(targ_res["target"])
+                pred_lm_dic = ReadJson(targ_res["pred"])
                 for lm,t_data in target_lm_dic.items():
                     if lm in pred_lm_dic.keys():
                         a = np.array([float(t_data["x"]),float(t_data["y"]),float(t_data["z"])])
@@ -458,7 +458,15 @@ def ReslutAccuracy(fiducial_dir):
     
     f.close
 
+def ReadJson(fiducial_path):
+    lm_dic = {}
 
+    with open(fiducial_path) as f:
+            data = json.load(f)
+    markups = data["markups"][0]["controlPoints"]
+    for markup in markups:
+        lm_dic[markup["label"]] = {"x":markup["position"][0],"y":markup["position"][1],"z":markup["position"][2]}
+    return lm_dic
 def SaveFiducialFromArray(data,scan_image,outpath,label_list):
     """
     Generate a fiducial file from an array with label

@@ -23,6 +23,7 @@ class Brain:
         out_channels,
         model_dir = "",
         model_name = "",
+        run_dir = "",
         learning_rate = 1e-4,
         batch_size = 10,
         verbose = False
@@ -42,6 +43,8 @@ class Brain:
         epoch_losses = []
         validation_metrics = []
         models_dirs = []
+
+        writers = []
         optimizers = []
         best_metrics = []
         best_epoch = []
@@ -61,13 +64,21 @@ class Brain:
             global_epoch.append(0)
             best_epoch.append(0)
 
+            # if not model_dir == "":
             dir_path = os.path.join(model_dir,str(n))
             if not os.path.exists(dir_path):
                 os.makedirs(dir_path)
             models_dirs.append(dir_path)
+            
+            run_path = os.path.normpath("/".join([os.path.dirname(os.path.dirname(model_dir)),str(os.path.basename(os.path.dirname(model_dir)))+"_Runs",os.path.basename(model_dir),str(n)]))
+            if not os.path.exists(run_path):
+                os.makedirs(run_path)
+            writers.append(SummaryWriter(run_path))
+
 
         self.loss_fn = nn.CrossEntropyLoss()
         self.optimizers = optimizers
+        self.writers = writers
 
         self.networks = networks
         # self.networks = [networks[0]]
@@ -80,7 +91,6 @@ class Brain:
         self.model_dirs = models_dirs
         self.model_name = model_name
 
-        # self.writer = SummaryWriter(models_dirs[0]+'/runs')
 
     def ResetNet(self,n):
         net = self.network_type(
@@ -153,6 +163,12 @@ class Brain:
             print("Average epoch Loss :",epoch_loss)
             print("Porcentage of good moves :",metric*100,"%")
 
+        writer = self.writers[n]
+        writer.add_scalar("Training loss",epoch_loss,self.global_epoch[n])
+        writer.add_scalar("Training accuracy",metric,self.global_epoch[n])
+        writer.close()
+
+
     def Validate(self,data,n):
         # print(data)
         # for n,network in enumerate(self.networks):
@@ -205,6 +221,11 @@ class Brain:
             else:
                 print("Model Was Not Saved ! Current Best Avg. metric: {} Current Avg. metric: {}".format(self.best_metrics[n], metric))
         print()
+        writer = self.writers[n]
+        writer.add_graph(network,input)
+        writer.add_scalar("Validation accuracy",metric,self.global_epoch[n])
+        writer.close()
+
     def LoadModels(self,model_lst):
         for n,net in enumerate(self.networks):
             print("Loading model", model_lst[n])

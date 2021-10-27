@@ -113,7 +113,7 @@ if __name__ ==  '__main__':
     output_params = parser.add_argument_group('Output parameters')
     output_params.add_argument('-o','--out', type=str, help='Output directory', required=True)
 
-    input_group.add_argument('-sp', '--spacing', nargs="+", type=float, help='Wanted output x spacing', default=[2,0.3])
+    input_group.add_argument('-sp', '--spacing', nargs="+", type=float, help='Wanted output x spacing', default=[1,0.3])
 
     args = parser.parse_args()
     

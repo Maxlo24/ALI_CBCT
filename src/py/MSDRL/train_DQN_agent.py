@@ -158,7 +158,7 @@ if __name__ ==  '__main__':
     input_group.add_argument('-vf', '--val_freq', type=int, help='Validation frequency', default=2)
     input_group.add_argument('-tp', '--test_percentage', type=int, help='Percentage of data to keep for validation', default=20)
     input_group.add_argument('-lr', '--learning_rate', type=float, help='Learning rate', default=1e-4)
-    input_group.add_argument('-nw', '--nbr_worker', type=int, help='Number of worker', default=1)
+    input_group.add_argument('-nw', '--nbr_worker', type=int, help='Number of worker', default=4)
 
     args = parser.parse_args()
     

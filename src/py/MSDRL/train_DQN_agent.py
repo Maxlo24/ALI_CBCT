@@ -69,6 +69,7 @@ def main(args):
             out_channels = len(movements["id"]),
             learning_rate = args.learning_rate,
             batch_size= batch_size,
+            generate_tensorboard=True,
             verbose=True
             ))
 

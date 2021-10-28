@@ -26,6 +26,7 @@ class Brain:
         run_dir = "",
         learning_rate = 1e-4,
         batch_size = 10,
+        generate_tensorboard = False,
         verbose = False
     ) -> None:
         self.network_type = network_type
@@ -34,6 +35,7 @@ class Brain:
         self.out_channels = out_channels
 
         self.verbose = verbose
+        self.generate_tensorboard = generate_tensorboard
         self.device = device
         self.batch_size = batch_size
         self.learning_rate = learning_rate
@@ -64,16 +66,17 @@ class Brain:
             global_epoch.append(0)
             best_epoch.append(0)
 
-            # if not model_dir == "":
-            dir_path = os.path.join(model_dir,str(n))
-            if not os.path.exists(dir_path):
-                os.makedirs(dir_path)
-            models_dirs.append(dir_path)
+            if not model_dir == "":
+                dir_path = os.path.join(model_dir,str(n))
+                if not os.path.exists(dir_path):
+                    os.makedirs(dir_path)
+                models_dirs.append(dir_path)
             
-            run_path = os.path.normpath("/".join([os.path.dirname(os.path.dirname(model_dir)),str(os.path.basename(os.path.dirname(model_dir)))+"_Runs",os.path.basename(model_dir),str(n)]))
-            if not os.path.exists(run_path):
-                os.makedirs(run_path)
-            writers.append(SummaryWriter(run_path))
+            if self.generate_tensorboard:
+                run_path = os.path.normpath("/".join([os.path.dirname(os.path.dirname(model_dir)),str(os.path.basename(os.path.dirname(model_dir)))+"_Runs",os.path.basename(model_dir),str(n)]))
+                if not os.path.exists(run_path):
+                    os.makedirs(run_path)
+                writers.append(SummaryWriter(run_path))
 
 
         self.loss_fn = nn.CrossEntropyLoss()
@@ -151,7 +154,7 @@ class Brain:
                 if torch.eq(torch.argmax(y[i]),target[i]):
                     epoch_good_move +=1
             epoch_iterator.set_description(
-                "Training (%d / %d Scans) (loss=%2.5f)" % ((step+1)*self.batch_size, self.batch_size*len(data), loss)
+                "Training loss=%2.5f" % (loss)
             )
 
         epoch_loss /= step+1
@@ -162,11 +165,13 @@ class Brain:
             print()
             print("Average epoch Loss :",epoch_loss)
             print("Porcentage of good moves :",metric*100,"%")
+            print()
 
-        writer = self.writers[n]
-        writer.add_scalar("Training loss",epoch_loss,self.global_epoch[n])
-        writer.add_scalar("Training accuracy",metric,self.global_epoch[n])
-        writer.close()
+        if self.generate_tensorboard:
+            writer = self.writers[n]
+            writer.add_scalar("Training loss",epoch_loss,self.global_epoch[n])
+            writer.add_scalar("Training accuracy",metric,self.global_epoch[n])
+            writer.close()
 
 
     def Validate(self,data,n):
@@ -198,16 +203,18 @@ class Brain:
 
                 running_loss +=loss.item()
                 epoch_iterator.set_description(
-                    "Validating (%d / %d Scans) (loss=%2.5f)" % ((step+1)*self.batch_size, self.batch_size*len(data), loss)
+                    "Validating loss=%2.5f)" % (loss)
                 )
 
             # running_loss /= step+1
             metric = good_move/((step+1)*self.batch_size)
 
             self.validation_metrics[n].append(metric)
+
             if self.verbose:
                 print()
                 print("Porcentage of good moves :",metric*100,"%")
+                print()
 
             if metric > self.best_metrics[n]:
                 self.best_metrics[n] = metric
@@ -221,10 +228,11 @@ class Brain:
             else:
                 print("Model Was Not Saved ! Current Best Avg. metric: {} Current Avg. metric: {}".format(self.best_metrics[n], metric))
         print()
-        writer = self.writers[n]
-        writer.add_graph(network,input)
-        writer.add_scalar("Validation accuracy",metric,self.global_epoch[n])
-        writer.close()
+        if self.generate_tensorboard:
+            writer = self.writers[n]
+            writer.add_graph(network,input)
+            writer.add_scalar("Validation accuracy",metric,self.global_epoch[n])
+            writer.close()
 
     def LoadModels(self,model_lst):
         for n,net in enumerate(self.networks):

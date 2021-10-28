@@ -14,6 +14,7 @@ from sklearn.model_selection import train_test_split
 
 import numpy as np
 import os
+from tqdm.std import tqdm
 
 
 # ----- MONAI ------
@@ -106,19 +107,28 @@ class TrainingMaster :
             print(lst)
 
     def GeneratePosDataset(self,key,size):
-        data_on_each_env = int(size/len(self.s_env[key])) + 1
         for agent in self.agents:
+            nbr_generated_data = 0
+            valid_env = []
             for env in self.s_env[key]:
                 if env.LandmarkIsPresent(agent.target):
+                    valid_env.append(env)
+
+            pos_dataset = tqdm(range(size),desc="Generating "+key+" dataset for agent " + agent.target)
+            for i in pos_dataset :
+                for env in valid_env:
                     for dim in range(self.env_dim):
-                        for n in range(data_on_each_env):
-                            self.pos_dataset[agent.target][key][dim].append({"env":env,"coord":env.GetRandomPos(dim,agent.target,agent.start_pos_radius)})
-            print(key,"dataset generated for Agent :", agent.target)
+                        self.pos_dataset[agent.target][key][dim].append({"env":env,"coord":env.GetRandomPos(dim,agent.target,agent.start_pos_radius)})
 
 
     def GenerateDataLoader(self,key,agent,dim):
         dataset = []
-        for pos in self.pos_dataset[agent.target][key][dim]:            
+        
+        pos_dataset = tqdm(
+            self.pos_dataset[agent.target][key][dim],
+            desc="Loading "+key+" crops for agent " + agent.target + " at scale "+ str(dim)
+            )
+        for pos in pos_dataset:            
             dataset.append(pos["env"].GetSample(dim,agent.target,pos["coord"],agent.FOV,agent.movement_matrix))
 
         train_ds = Dataset(

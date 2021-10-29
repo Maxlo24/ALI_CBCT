@@ -15,7 +15,7 @@ from sklearn.model_selection import train_test_split
 import numpy as np
 import os
 from tqdm.std import tqdm
-
+import time
 
 # ----- MONAI ------
 # from monai.losses import DiceCELoss
@@ -114,22 +114,50 @@ class TrainingMaster :
                 if env.LandmarkIsPresent(agent.target):
                     valid_env.append(env)
 
-            pos_dataset = tqdm(range(size),desc="Generating "+key+" dataset for agent " + agent.target)
-            for i in pos_dataset :
-                for env in valid_env:
-                    for dim in range(self.env_dim):
-                        self.pos_dataset[agent.target][key][dim].append({"env":env,"coord":env.GetRandomPos(dim,agent.target,agent.start_pos_radius)})
+            # print("start")
+            # start_time = time.time()
+            # # pos_dataset = tqdm(range(size),desc="Generating "+key+" dataset for agent " + agent.target)
+            # for i in range(size) :
+            #     for env in valid_env:
+            #         for dim in range(self.env_dim):
+            #             self.pos_dataset[agent.target][key][dim].append({"env":env,"coord":env.GetRandomPos(dim,agent.target,agent.start_pos_radius)})
+            # print("--- %s seconds ---" % (time.time() - start_time))
 
+            
+            target = agent.target
+            start_pos_radius = agent.start_pos_radius
+
+            
+            print("Generating "+key+" dataset for agent " + agent.target)
+            for dim in range(self.env_dim):
+                data_per_env = int(size/len(valid_env))+1 
+                for env in valid_env:
+                    get_pos = lambda x : {"env":env,"coord":env.GetRandomPos(dim,target,start_pos_radius)}
+                    self.pos_dataset[target][key][dim] += list(map(get_pos,range(data_per_env)))
+            
 
     def GenerateDataLoader(self,key,agent,dim):
         dataset = []
         
-        pos_dataset = tqdm(
-            self.pos_dataset[agent.target][key][dim],
-            desc="Loading "+key+" crops for agent " + agent.target + " at scale "+ str(dim)
-            )
-        for pos in pos_dataset:            
-            dataset.append(pos["env"].GetSample(dim,agent.target,pos["coord"],agent.FOV,agent.movement_matrix))
+        # pos_dataset = tqdm(
+        #     self.pos_dataset[agent.target][key][dim],
+        #     desc="Loading "+key+" crops for agent " + agent.target + " at scale "+ str(dim)
+        #     )
+
+        print("Loading "+key+" crops for agent " + agent.target + " at scale "+ str(dim))
+        # start_time = time.time()
+
+        # for pos in self.pos_dataset[agent.target][key][dim]:            
+        #     dataset.append(pos["env"].GetSample(dim,agent.target,pos["coord"],agent.FOV,agent.movement_matrix))
+
+
+        target = agent.target
+        FOV = agent.FOV
+        mov_mat = agent.movement_matrix
+        get_sample = lambda pos: pos["env"].GetSample(dim,target,pos["coord"],FOV,mov_mat)
+
+        dataset = list(map(get_sample,self.pos_dataset[agent.target][key][dim]))        
+        # print("--- %s seconds ---" % (time.time() - start_time))
 
         train_ds = Dataset(
             data=dataset,

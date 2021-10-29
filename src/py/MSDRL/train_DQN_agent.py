@@ -135,12 +135,14 @@ if __name__ ==  '__main__':
     input_group.add_argument('--dir_project', type=str, help='Directory with all the project',default='/Users/luciacev-admin/Documents/Projects/MSDRL_benchmark')
     input_group.add_argument('--dir_data', type=str, help='Input directory with 3D images', default=parser.parse_args().dir_project+'/data')
     input_group.add_argument('--dir_scans', type=str, help='Input directory with the scans',default=parser.parse_args().dir_data+'/patients')
+    # input_group.add_argument('--dir_scans', type=str, help='Input directory with the scans',default='/Users/luciacev-admin/Desktop/Agent_Training_data')
+
 
     # input_group.add_argument('--dir_cash', type=str, help='Output directory of the training',default=parser.parse_args().dir_data+'/Cash')
     input_group.add_argument('--dir_model', type=str, help='Output directory of the training',default= parser.parse_args().dir_data+'/ALI_CNN_models_'+datetime.datetime.now().strftime("%Y_%d_%m"))
 
     #Environment
-    input_group.add_argument('-lm','--landmarks',nargs="+",type=str,help="Prepare the data for uper and/or lower landmark training (ex: U L CB)", default=["CB"])
+    input_group.add_argument('-lm','--landmarks',nargs="+",type=str,help="Prepare the data for uper and/or lower landmark training (ex: U L CB)", default=["L"])
     input_group.add_argument('-sp', '--spacing', nargs="+", type=float, help='Spacing of the different scales', default=[1,0.3])
     
     #Agent
@@ -159,7 +161,7 @@ if __name__ ==  '__main__':
     input_group.add_argument('-vf', '--val_freq', type=int, help='Validation frequency', default=2)
     input_group.add_argument('-tp', '--test_percentage', type=int, help='Percentage of data to keep for validation', default=20)
     input_group.add_argument('-lr', '--learning_rate', type=float, help='Learning rate', default=1e-4)
-    input_group.add_argument('-nw', '--nbr_worker', type=int, help='Number of worker', default=4)
+    input_group.add_argument('-nw', '--nbr_worker', type=int, help='Number of worker', default=0)
 
     args = parser.parse_args()
     

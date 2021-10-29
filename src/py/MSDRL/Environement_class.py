@@ -161,12 +161,9 @@ class Environement :
         return crop
 
     def GetRewardLst(self,dim,position,target,mvt_matrix):
-        reward_lst = []
         agent_dist = self.GetL2DistFromLandmark(dim,position,target)
-        for move in mvt_matrix:
-            neighbor_coord = position + move
-            dist_from_lm = self.GetL2DistFromLandmark(dim,neighbor_coord,target)
-            reward_lst.append(agent_dist - dist_from_lm)
+        get_reward = lambda move : agent_dist - self.GetL2DistFromLandmark(dim,position + move,target)
+        reward_lst = list(map(get_reward,mvt_matrix))
         return reward_lst
 
     def GetBestMove(self,dim,position,target,mvt_matrix):

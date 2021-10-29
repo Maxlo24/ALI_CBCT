@@ -191,6 +191,41 @@ class Environement :
         # rand_coord = self.GetLandmarkPos(dim,target)
         return rand_coord
 
+    def GetRandomPoses(self,dim,target,radius,pos_nbr):
+        if dim == 0:
+            porcentage = 0.2 #porcentage of data around landmark
+            centered_pos_nbr = int(porcentage*pos_nbr)
+            rand_coord_lst = self.GetRandomPosesInAllScan(dim,pos_nbr-centered_pos_nbr)
+            rand_coord_lst += self.GetRandomPosesArounfLabel(dim,target,radius,centered_pos_nbr)
+        else:
+            rand_coord_lst = self.GetRandomPosesArounfLabel(dim,target,radius,pos_nbr)
+
+        return rand_coord_lst
+
+    def GetRandomPosesInAllScan(self,dim,pos_nbr):
+        max_coord = self.GetSize(dim)
+        get_rand_coord = lambda x: np.random.randint(1, max_coord, dtype=np.int16)
+        rand_coord_lst = list(map(get_rand_coord,range(pos_nbr)))
+        return rand_coord_lst
+    
+    def GetRandomPosesArounfLabel(self,dim,target,radius,pos_nbr):
+        min_coord = [0,0,0]
+        max_coord = self.GetSize(dim)
+        landmark_pos = self.GetLandmarkPos(dim,target)
+
+        get_random_coord = lambda x: landmark_pos + np.random.randint([1,1,1], radius*2) - radius
+
+        rand_coords = map(get_random_coord,range(pos_nbr))
+
+        correct_coord = lambda coord: np.array([min(max(coord[0],min_coord[0]),max_coord[0]),min(max(coord[1],min_coord[1]),max_coord[1]),min(max(coord[2],min_coord[2]),max_coord[2])])
+        rand_coords = list(map(correct_coord,rand_coords))
+
+        return rand_coords
+        # for axe,val in enumerate(rand_coord):
+        #     rand_coord[axe] = max(val,min_coord[axe])
+        #     rand_coord[axe] = min(val,max_coord[axe])
+
+
     def GetRandomSample(self,dim,target,radius,crop_size,mvt_matrix):
         rand_coord = self.GetRandomPos(dim,target,radius)
         sample = self.GetSample(dim,target,rand_coord,crop_size,mvt_matrix)
@@ -204,6 +239,16 @@ class Environement :
         # sample["coord"] = coord
         # sample["target"] = torch.from_numpy(GetTargetOutputFromAction(best_action))
         return sample
+
+    def GetSampleFromPoses(self,dim,target,pos_lst,crop_size,mvt_matrix):
+
+        get_sample = lambda coord : {
+            "state":self.GetZone(dim,coord,crop_size),
+            "target": np.argmax(self.GetRewardLst(dim,coord,target,mvt_matrix))
+            }
+        sample_lst = list(map(get_sample,pos_lst))
+
+        return sample_lst
 
     def SavePredictedLandmarks(self):
 

@@ -61,8 +61,10 @@ class TrainingMaster :
             self.target_lst.append(target)
             data_dic[target] = {"train" : [], "val" : []}
             for dim in range(self.env_dim):
-                data_dic[agent.target]["train"].append(deque(maxlen=max_train_memory_size))
-                data_dic[agent.target]["val"].append(deque(maxlen=max_val_memory_size))
+                data_dic[agent.target]["train"].append({})
+                data_dic[agent.target]["val"].append({})
+
+        self.crop_dataset = {"train":deque(maxlen=max_train_memory_size), "val":deque(maxlen=max_val_memory_size)}
 
         self.pos_dataset = data_dic
 
@@ -98,7 +100,6 @@ class TrainingMaster :
     def SplitTrainValData(self,val_percentage = 0.2):
         train_env, val_env = train_test_split(self.environements, test_size=val_percentage, random_state=len(self.environements))
         self.s_env = {"train":train_env,"val":val_env}
-
         for key in self.s_env.keys():
             print(key,"environments :")
             lst = []
@@ -123,18 +124,17 @@ class TrainingMaster :
             #             self.pos_dataset[agent.target][key][dim].append({"env":env,"coord":env.GetRandomPos(dim,agent.target,agent.start_pos_radius)})
             # print("--- %s seconds ---" % (time.time() - start_time))
 
-            
             target = agent.target
             start_pos_radius = agent.start_pos_radius
 
             
-            print("Generating "+key+" dataset for agent " + agent.target)
+            start_time = time.time()
+            print("Generating "+key+" dataset for agent " + agent.target,end="\r",flush=True)
             for dim in range(self.env_dim):
                 data_per_env = int(size/len(valid_env))+1 
                 for env in valid_env:
-                    get_pos = lambda x : {"env":env,"coord":env.GetRandomPos(dim,target,start_pos_radius)}
-                    self.pos_dataset[target][key][dim] += list(map(get_pos,range(data_per_env)))
-            
+                    self.pos_dataset[target][key][dim][env] = env.GetRandomPoses(dim,target,start_pos_radius,data_per_env)
+            print("Generating "+key+" dataset for agent " + agent.target+" : done in %2.1f seconds" % (time.time() - start_time))
 
     def GenerateDataLoader(self,key,agent,dim):
         dataset = []
@@ -144,22 +144,23 @@ class TrainingMaster :
         #     desc="Loading "+key+" crops for agent " + agent.target + " at scale "+ str(dim)
         #     )
 
-        print("Loading "+key+" crops for agent " + agent.target + " at scale "+ str(dim))
-        # start_time = time.time()
-
         # for pos in self.pos_dataset[agent.target][key][dim]:            
         #     dataset.append(pos["env"].GetSample(dim,agent.target,pos["coord"],agent.FOV,agent.movement_matrix))
 
-
+        start_time = time.time()
+        print("Generating "+key+" crops for agent " + agent.target + " at scale "+ str(dim),end="\r",flush=True)
         target = agent.target
         FOV = agent.FOV
         mov_mat = agent.movement_matrix
-        get_sample = lambda pos: pos["env"].GetSample(dim,target,pos["coord"],FOV,mov_mat)
+        # get_sample = lambda pos: pos["env"].GetSample(dim,target,pos["coord"],FOV,mov_mat)
 
-        dataset = list(map(get_sample,self.pos_dataset[agent.target][key][dim]))        
-        # print("--- %s seconds ---" % (time.time() - start_time))
-
-        train_ds = Dataset(
+        # dataset = list(map(get_sample,self.pos_dataset[agent.target][key][dim]))        
+        # print("Loading "+key+" crops for agent " + agent.target + " at scale "+ str(dim)+" : done in %2.1f seconds" % (time.time() - start_time))
+        dataset = self.crop_dataset[key]
+        for env,pos_lst in self.pos_dataset[agent.target][key][dim].items():
+            dataset += env.GetSampleFromPoses(dim,target,pos_lst,FOV,mov_mat)
+        print("Generating "+key+" crops for agent " + agent.target + " at scale "+ str(dim)+" : done in %2.1f seconds" % (time.time() - start_time))
+        train_ds = CacheDataset(
             data=dataset,
             transform=self.data_transform,
             # cache_rate=1.0,

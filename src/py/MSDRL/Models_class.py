@@ -60,7 +60,7 @@ class Brain:
             net.to(self.device)
             networks.append(net)
             optimizers.append(optim.Adam(net.parameters(), lr=learning_rate))
-            epoch_losses.append([])
+            epoch_losses.append([0])
             validation_metrics.append([])
             best_metrics.append(0)
             global_epoch.append(0)
@@ -104,7 +104,7 @@ class Brain:
         net.to(self.device)
         self.networks[n] = net
         self.optimizers[n] = optim.Adam(net.parameters(), lr=self.learning_rate)
-        self.epoch_losses[n] = []
+        self.epoch_losses[n] = [0]
         self.validation_metrics[n] = []
         self.best_metrics[n] = 0
         self.global_epoch[n] = 0
@@ -159,19 +159,26 @@ class Brain:
 
         epoch_loss /= step+1
         metric = epoch_good_move/((step+1)*self.batch_size)
-                
-        self.epoch_losses[n].append(epoch_loss)
-        if self.verbose:
+        
+        if self.epoch_losses[n][-1] == epoch_loss: #If learning is stuck
+            self.ResetNet(n)
             print()
-            print("Average epoch Loss :",epoch_loss)
-            print("Porcentage of good moves :",metric*100,"%")
-            print()
+            print("Stuck at Loss :",epoch_loss)
+            print("Net reset")
+            print("-------------------------------------------------")
+        else:
+            self.epoch_losses[n].append(epoch_loss)
+            if self.verbose:
+                print()
+                print("Average epoch Loss :",epoch_loss)
+                print("Porcentage of good moves :",metric*100,"%")
+                print("-------------------------------------------------")
 
-        if self.generate_tensorboard:
-            writer = self.writers[n]
-            writer.add_scalar("Training loss",epoch_loss,self.global_epoch[n])
-            writer.add_scalar("Training accuracy",metric,self.global_epoch[n])
-            writer.close()
+            if self.generate_tensorboard:
+                writer = self.writers[n]
+                writer.add_scalar("Training loss",epoch_loss,self.global_epoch[n])
+                writer.add_scalar("Training accuracy",metric,self.global_epoch[n])
+                writer.close()
 
 
     def Validate(self,data,n):
@@ -214,7 +221,6 @@ class Brain:
             if self.verbose:
                 print()
                 print("Porcentage of good moves :",metric*100,"%")
-                print()
 
             if metric > self.best_metrics[n]:
                 self.best_metrics[n] = metric
@@ -227,7 +233,7 @@ class Brain:
                 print("Model Was Saved ! Current Best Avg. metric: {} Current Avg. metric: {}".format(self.best_metrics[n], metric))
             else:
                 print("Model Was Not Saved ! Current Best Avg. metric: {} Current Avg. metric: {}".format(self.best_metrics[n], metric))
-        print()
+        print("-------------------------------------------------")
         if self.generate_tensorboard:
             writer = self.writers[n]
             writer.add_graph(network,input)

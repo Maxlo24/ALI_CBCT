@@ -210,7 +210,7 @@ if __name__ ==  '__main__':
     input_group.add_argument('-tp', '--test_percentage', type=int, help='Percentage of data to keep for validation', default=20)
     input_group.add_argument('-mn', '--model_name', type=str, help='Name of the model', default="ALI_model")
     input_group.add_argument('-nl', '--nbr_label', type=int, help='Number of label', default=4)
-    input_group.add_argument('-nw', '--nbr_worker', type=int, help='Number of worker', default=2)
+    input_group.add_argument('-nw', '--nbr_worker', type=int, help='Number of worker', default=0)
 
     args = parser.parse_args()
     

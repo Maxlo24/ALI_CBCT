@@ -10,7 +10,6 @@ import os
 import torch
 import datetime
 
-
 from GlobalVar import*
 from Models_class import (Brain,DQN,MaxDQN)
 from Agents_class import (DQNAgent)
@@ -18,7 +17,6 @@ from Environement_class import (Environement)
 from TrainingManager_class import (TrainingMaster)
 
 import argparse
-
 
 def main(args):
 
@@ -116,14 +114,6 @@ def main(args):
     
     # PlotAgentPath(a)
 
-
-
-
-
-
-
-
-
 # #####################################
 #  Args
 # #####################################
@@ -152,8 +142,8 @@ if __name__ ==  '__main__':
 
 
     #Training data
-    input_group.add_argument('-bs', '--batch_size', type=int, help='Batch size', default=250)
-    input_group.add_argument('-ds', '--data_size', type=int, help='Size of the dataset', default=50000)
+    input_group.add_argument('-bs', '--batch_size', type=int, help='Batch size', default=2)
+    input_group.add_argument('-ds', '--data_size', type=int, help='Size of the dataset', default=10000)
     input_group.add_argument('-duf', '--data_update_freq', type=int, help='Data update frequency', default=1)
     input_group.add_argument('-dur', '--data_update_ratio', type=float, help='Ratio of data to update', default=0.5)
     #Training param

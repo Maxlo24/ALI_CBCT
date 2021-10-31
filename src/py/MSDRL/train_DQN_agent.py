@@ -93,26 +93,6 @@ def main(args):
     # CheckCrops(Master,agent)
     # e = environement_lst[0]
 
-    # a.SetEnvironement(e)
-
-    # a.verbose = False
-    # for dim in range(2):
-    #     a.GoToScale(dim)  
-    #     for i in range(50):
-    #         a.SetRandomPos()
-    #         a.Search(80)
-
-    # for i in range(50):
-
-    # a.SetRandomPos()
-    # a.Search(100)
-    # a.GoToScale(0)
-    # a.brain.LoadModels(["/Users/luciacev-admin/Desktop/MSDRL_models/Ba_2021_18_10_E_2.pth","/Users/luciacev-admin/Desktop/MSDRL_models/Ba_2021_18_10_E_2.pth"])
-    # for i in range(10):
-    #     print("Reset")
-    # a.Search()
-    
-    # PlotAgentPath(a)
 
 # #####################################
 #  Args
@@ -138,20 +118,20 @@ if __name__ ==  '__main__':
     #Agent
     input_group.add_argument('-fov', '--agent_FOV', nargs="+", type=float, help='Wanted crop size', default=[64,64,64])
     input_group.add_argument('-mvt','--movement', type=str, help='Number of posssible agent movement',default='6') # parser.parse_args().dir_data+
-    input_group.add_argument('-sr', '--spawn_radius', type=int, help='Wanted crop size', default=30)
+    input_group.add_argument('-sr', '--spawn_radius', type=int, help='spawning radius around landmark', default=30)
 
 
     #Training data
-    input_group.add_argument('-bs', '--batch_size', type=int, help='Batch size', default=2)
+    input_group.add_argument('-bs', '--batch_size', type=int, help='Batch size', default=250)
     input_group.add_argument('-ds', '--data_size', type=int, help='Size of the dataset', default=10000)
     input_group.add_argument('-duf', '--data_update_freq', type=int, help='Data update frequency', default=1)
     input_group.add_argument('-dur', '--data_update_ratio', type=float, help='Ratio of data to update', default=0.5)
     #Training param
     input_group.add_argument('-mi', '--max_epoch', type=int, help='Number of training epocs', default=1000)
-    input_group.add_argument('-vf', '--val_freq', type=int, help='Validation frequency', default=2)
-    input_group.add_argument('-tp', '--test_percentage', type=int, help='Percentage of data to keep for validation', default=20)
+    input_group.add_argument('-vf', '--val_freq', type=int, help='Validation frequency', default=5)
+    input_group.add_argument('-tp', '--test_percentage', type=int, help='Percentage of data to keep for validation', default=10)
     input_group.add_argument('-lr', '--learning_rate', type=float, help='Learning rate', default=1e-4)
-    input_group.add_argument('-nw', '--nbr_worker', type=int, help='Number of worker', default=0)
+    input_group.add_argument('-nw', '--nbr_worker', type=int, help='Number of worker', default=10)
 
     args = parser.parse_args()
     

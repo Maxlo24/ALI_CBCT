@@ -171,12 +171,16 @@ class TrainingMaster :
         
     # TOOLS
     def Train(self,max_epoch,val_freq,data_update_freq,data_update_ratio):
+        print("\nTraining starting :\n")
         epoch_ctr = 0
         val_ctr = 0
         self.GeneratePosDataset("train",self.max_train_memory_size)
         self.GeneratePosDataset("val",self.max_val_memory_size)
+
         while epoch_ctr < max_epoch:
             val_done = False
+            print("\nGlobal loop :",epoch_ctr+1,"\n")
+            start_time = time.time()
             for agent in self.agents:
                 for dim in range(self.env_dim):
                     data_loader = self.GenerateDataLoader("train",agent,dim)
@@ -193,8 +197,15 @@ class TrainingMaster :
             val_ctr += data_update_freq
             if val_done:
                 val_ctr = 0
+
+            print("\nGlobal loop :",epoch_ctr+1,": done in %2.1f seconds" % (time.time() - start_time),"\n")
+            print("==========================================================================\n")
+
+            
             epoch_ctr += data_update_freq
             self.GeneratePosDataset("train",int(self.max_train_memory_size*data_update_ratio))
+
+
 
         print("End of training")
         for agent in self.agents:

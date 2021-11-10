@@ -7,8 +7,11 @@ import glob
 import torch
 import json
 
-
 from GlobalVar import*
+
+import seaborn as sns
+import matplotlib.pyplot as plt
+
 
 def GetAgentLst(agents_param):
     agent_lst = []
@@ -408,6 +411,7 @@ def WriteJson(lm_lst,out_path):
 
 def  ReslutAccuracy(fiducial_dir):
 
+    error_dic = {"labels":[], "error":[]}
     patients = {}
     normpath = os.path.normpath("/".join([fiducial_dir, '**', '']))
     for img_fn in sorted(glob.iglob(normpath, recursive=True)):
@@ -451,12 +455,25 @@ def  ReslutAccuracy(fiducial_dir):
                         b = np.array([float(p_data["x"]),float(p_data["y"]),float(p_data["z"])])
                         # print(a,b)
                         dist = np.linalg.norm(a-b)
+                        error_dic["labels"].append(lm)
+                        error_dic["error"].append(dist)
                         print("  ",lm,"error = ", dist)
                         f.write("  "+ str(lm)+" error = "+str(dist)+"\n")
             f.write("\n")
         f.write("\n")
     
     f.close
+    return error_dic
+
+
+def PlotResults(data):
+    sns.set_theme(style="whitegrid")
+    # data = {"labels":["B","B","N","N","B","N"], "error":[0.1,0.5,1.6,1.9,0.3,1.3]}    
+
+    # print(tips)
+    ax = sns.violinplot(x="labels", y="error", data=data)
+    plt.show()
+
 
 def ReadJson(fiducial_path):
     lm_dic = {}

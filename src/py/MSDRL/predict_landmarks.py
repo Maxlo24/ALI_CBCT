@@ -4,7 +4,8 @@ from utils import (
     PlotAgentPath,
     GetBrain,
     GetTrainingEnvironementsAgents,
-    ReslutAccuracy
+    ReslutAccuracy,
+    PlotResults
 )
 
 import SimpleITK as sitk
@@ -83,7 +84,8 @@ def main(args):
     #                 e.AddPredictedLandmark(lm,e.GetLandmarkPos(1,lm))
     #                 e.SavePredictedLandmarks()
 
-    ReslutAccuracy(args.dir_scans)
+    data_result = ReslutAccuracy(args.dir_scans)
+    PlotResults(data_result)
 
 
 

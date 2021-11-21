@@ -17,6 +17,7 @@ from monai.transforms import (
     ScaleIntensity,
     SpatialCrop,
     BorderPad,
+    Rotated,
 )
 
 from utils import(
@@ -42,9 +43,12 @@ class Environement :
             images_path : path of the image with all the different scale,
             landmark_fiducial : path of the fiducial list linked with the image,
         """
+
         self.padding = padding.astype(np.int16)
         self.verbose = verbose
         self.transform = Compose([AddChannel(),BorderPad(spatial_border=self.padding.tolist()),ScaleIntensity(minv = -1.0, maxv = 1.0, factor = None)])
+        # self.transform = Compose([AddChannel(),BorderPad(spatial_border=[1,1,1]),ScaleIntensity(minv = -1.0, maxv = 1.0, factor = None)])
+
         # self.transform = Compose([AddChannel(),BorderPad(spatial_border=self.padding.tolist())])
         self.predicted_landmarks = {}
 
@@ -101,6 +105,7 @@ class Environement :
 
         self.ResetLandmarks()
 
+
     def ResetLandmarks(self):
         dim_lm = []
         for i in range(self.dim):
@@ -140,6 +145,56 @@ class Environement :
             if self.verbose:
                 print(landmark, "missing in patient ", os.path.basename(os.path.dirname(self.images_path[0])))
             return False
+
+    def GenerateLandmarkImg(self,dim):
+
+        new_image = sitk.Image((np.array(self.sizes[dim])+2*self.padding).tolist(), sitk.sitkInt16)
+        
+        img_ar = np.array(sitk.GetArrayFromImage(new_image))#.astype(dtype=np.float32)
+        img_ar = img_ar.transpose(2,1,0)
+
+        lm_id = 0
+        for lm,pos in self.dim_landmarks[dim].items():
+            lm_id+=1
+            ppos = pos + self.padding
+            img_ar[ppos[0]][ppos[1]][ppos[2]] = lm_id
+
+        output = torch.from_numpy(img_ar).unsqueeze(0).type(torch.int16)
+        # print(output.shape)
+        return output
+
+
+    # TRANSFORMS
+
+    def SetRandomRotation(self):
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+        rand_angle_theta =  0#2*np.random.rand()*np.pi
+        rand_angle_phi = 0#np.random.rand()*np.pi
+        rot_transform = Rotated(
+            keys=["image","landmarks"],
+            angle=[rand_angle_theta,rand_angle_phi,0],
+            mode=("bilinear","nearest"),
+            keep_size=False,
+        )
+        for i,data in enumerate(self.data):
+            print("Rotating dim:",i)
+            data_dic = {
+                "image":data.to(device),
+                "landmarks":self.GenerateLandmarkImg(i).to(device)
+                }
+
+            rotated_data = rot_transform(data_dic)
+            # print(rotated_data["image"])
+            self.data[i] = rotated_data["image"]
+            rotated_lm_img = rotated_data["landmarks"]
+
+            # self.data[i] = rot_transform(data_dic)
+            # self.data[i] = self.GenerateLandmarkImg(i)
+
+
+
+    # GET
 
     def GetLandmarkPos(self,dim,landmark):
         return self.dim_landmarks[dim][landmark]
@@ -299,3 +354,38 @@ class Environement :
             #     f.write(str(id)+","+str(element["coord"][0])+","+str(element["coord"][1])+","+str(element["coord"][2])+",0,0,0,1,1,1,0,"+element["label"]+",,\n")
             # # # f.write( data + "\n")
             # f.close
+
+
+    def SaveCBCT(self,dim,out_path):
+        data = self.data[dim]
+        scan_name = os.path.basename(self.images_path[dim])
+        print("Saving:",scan_name)
+        # print(self.padding)
+        # print(data[0][self.padding[0]:-self.padding[0],self.padding[1]:-self.padding[1],self.padding[2]:-self.padding[2]].shape)
+        output = sitk.GetImageFromArray(
+            data[0][self.padding[0]:-self.padding[0],
+            self.padding[1]:-self.padding[1],
+            self.padding[2]:-self.padding[2]].type(torch.float32)
+        )
+        writer = sitk.ImageFileWriter()
+        writer.SetFileName(os.path.join(out_path,scan_name))
+        writer.Execute(output)
+
+    def SaveEnvironmentState(self):
+
+        # self.SaveCBCT(0,"")
+
+        landmarks = []
+        for lm_dic in self.dim_landmarks:
+            dic = {}
+            for lm,pos in lm_dic.items():
+                dic[lm] = pos.tolist()
+            landmarks.append(dic)
+
+        data = {
+            "files_path":self.images_path,
+            "Landmarks":landmarks
+        }
+
+        with open('data.json', 'w') as fp:
+            json.dump(data, fp, ensure_ascii=False, indent=1)

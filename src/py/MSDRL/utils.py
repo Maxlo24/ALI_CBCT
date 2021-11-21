@@ -85,6 +85,7 @@ def GetTrainingEnvironementsAgents(environments_param,agents_param):
         print("Generating Environement for :" , os.path.dirname(data["images"][0]))
         env = environments_param["type"](
             padding = np.array(agents_param["FOV"])/2+1,
+            device = DEVICE,
             verbose=environments_param["verbose"]
             )
         env.LoadImages(data["images"])

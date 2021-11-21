@@ -50,8 +50,6 @@ def main(args):
     environement_lst, agent_lst = GetTrainingEnvironementsAgents(environments_param,agents_param)
     # agent_lst = [agent_lst[0]]
 
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
     for agent in agent_lst:
         dir_path = os.path.join(args.dir_model,agent.target)
         if not os.path.exists(dir_path):
@@ -61,7 +59,7 @@ def main(args):
             network_nbr = dim,
             model_dir = dir_path,
             model_name = agent.target,
-            device = device,
+            device = DEVICE,
             in_channels = 1,
             in_size = args.agent_FOV,
             out_channels = len(movements["id"]),

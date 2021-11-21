@@ -36,6 +36,7 @@ class Environement :
     def __init__(
         self,
         padding,
+        device,
         verbose = False
     ) -> None:
         """
@@ -45,6 +46,7 @@ class Environement :
         """
 
         self.padding = padding.astype(np.int16)
+        self.device = device
         self.verbose = verbose
         self.transform = Compose([AddChannel(),BorderPad(spatial_border=self.padding.tolist()),ScaleIntensity(minv = -1.0, maxv = 1.0, factor = None)])
         # self.transform = Compose([AddChannel(),BorderPad(spatial_border=[1,1,1]),ScaleIntensity(minv = -1.0, maxv = 1.0, factor = None)])
@@ -172,7 +174,7 @@ class Environement :
     # TRANSFORMS
 
     def SetRandomRotation(self):
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
         rand_angle_theta =  0#2*np.random.rand()*np.pi
         rand_angle_phi = 0#np.random.rand()*np.pi
@@ -185,8 +187,8 @@ class Environement :
         for i,data in enumerate(self.data):
             print("Rotating env:",self.images_path[i])
             data_dic = {
-                "image":data.to(device),
-                "landmarks":self.GenerateLandmarkImg(i).to(device)
+                "image":data.to(self.device),
+                "landmarks":self.GenerateLandmarkImg(i).to(self.device)
                 }
 
             rotated_data = rot_transform(data_dic)
@@ -198,7 +200,7 @@ class Environement :
             self.data[i] = rotated_img
             rotated_lm_img = rotated_data["landmarks"]
 
-            lm_array = rotated_lm_img[0].numpy().astype(np.int16)
+            lm_array = rotated_lm_img[0].cpu().numpy().astype(np.int16)
             # print(np.shape(lm_array))
 
             lm_id = 0

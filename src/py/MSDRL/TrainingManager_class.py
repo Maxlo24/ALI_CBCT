@@ -45,10 +45,12 @@ class TrainingMaster :
         env_dim = 2,
         num_worker = 1,
         batch_size = 20,
+        rand_rot = True,
     ) -> None:
 
         self.environements = environement_lst
         self.env_dim = env_dim
+        self.rand_rot = rand_rot
         # self.val_percentage = val_percentage
         self.SplitTrainValData(val_percentage)
 
@@ -108,6 +110,10 @@ class TrainingMaster :
             print(lst)
 
     def GeneratePosDataset(self,key,size):
+        if self.rand_rot:
+            for env in self.s_env[key]:
+                env.SetRandomRotation()
+
         for agent in self.agents:
             nbr_generated_data = 0
             valid_env = []

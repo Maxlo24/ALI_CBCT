@@ -67,7 +67,7 @@ class Environement :
             origin = img.GetOrigin()
             origins.append(np.array([origin[2],origin[1],origin[0]]))
             img_ar = sitk.GetArrayFromImage(img)
-            sizes.append(np.shape(img_ar))
+            sizes.append(np.array(np.shape(img_ar)))
             data.append(torch.from_numpy(self.transform(img_ar)).type(torch.float16))
 
         self.dim = len(data)
@@ -94,7 +94,7 @@ class Environement :
             origin = img.GetOrigin()
             origins.append(np.array([origin[2],origin[1],origin[0]]))
             img_ar = sitk.GetArrayFromImage(img)#.astype(dtype=np.float32)
-            sizes.append(np.shape(img_ar))
+            sizes.append(np.array(np.shape(img_ar)))
             data.append(torch.from_numpy(self.transform(img_ar)).type(torch.float16))
 
         self.dim = len(data)
@@ -158,11 +158,16 @@ class Environement :
             lm_id+=1
             ppos = pos + self.padding
             img_ar[ppos[0]][ppos[1]][ppos[2]] = lm_id
+            img_ar[ppos[0]+1][ppos[1]][ppos[2]] = lm_id
+            img_ar[ppos[0]][ppos[1]+1][ppos[2]] = lm_id
+            img_ar[ppos[0]][ppos[1]][ppos[2]+1] = lm_id
+            img_ar[ppos[0]-1][ppos[1]][ppos[2]] = lm_id
+            img_ar[ppos[0]][ppos[1]-1][ppos[2]] = lm_id
+            img_ar[ppos[0]][ppos[1]][ppos[2]-1] = lm_id
 
         output = torch.from_numpy(img_ar).unsqueeze(0).type(torch.int16)
         # print(output.shape)
         return output
-
 
     # TRANSFORMS
 
@@ -178,7 +183,7 @@ class Environement :
             keep_size=False,
         )
         for i,data in enumerate(self.data):
-            print("Rotating dim:",i)
+            print("Rotating env:",self.images_path[i])
             data_dic = {
                 "image":data.to(device),
                 "landmarks":self.GenerateLandmarkImg(i).to(device)
@@ -186,12 +191,21 @@ class Environement :
 
             rotated_data = rot_transform(data_dic)
             # print(rotated_data["image"])
-            self.data[i] = rotated_data["image"]
+            rotated_img = rotated_data["image"]
+            # print(type(self.sizes[i]))
+            # print(type(rotated_img[0].shape - self.padding*2))
+            self.sizes[i] = rotated_img[0].shape - self.padding*2
+            self.data[i] = rotated_img
             rotated_lm_img = rotated_data["landmarks"]
 
-            # self.data[i] = rot_transform(data_dic)
-            # self.data[i] = self.GenerateLandmarkImg(i)
+            lm_array = rotated_lm_img[0].numpy().astype(np.int16)
+            # print(np.shape(lm_array))
 
+            lm_id = 0
+            for lm,pos in self.dim_landmarks[i].items():
+                lm_id+=1
+                ppos = np.where(lm_array==lm_id)
+                self.dim_landmarks[i][lm] = np.array([int(np.mean(ppos[0])),int(np.mean(ppos[1])),int(np.mean(ppos[2]))]) - self.padding
 
 
     # GET

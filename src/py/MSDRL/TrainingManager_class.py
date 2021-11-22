@@ -39,6 +39,8 @@ class TrainingMaster :
         self,
         environement_lst,
         agent_lst,
+        featNet,
+        model_dir,
         max_train_memory_size = 100,
         max_val_memory_size = 100,
         val_percentage = 0.2,
@@ -48,6 +50,8 @@ class TrainingMaster :
         rand_rot = True,
     ) -> None:
 
+        self.featNet = featNet
+        self.model_dir = model_dir
         self.environements = environement_lst
         self.env_dim = env_dim
         self.rand_rot = rand_rot
@@ -109,10 +113,12 @@ class TrainingMaster :
                 lst.append(os.path.basename(os.path.dirname(env.images_path[0])))
             print(lst)
 
-    def GeneratePosDataset(self,key,size):
+    def RotateEnvironments(self,key):
         if self.rand_rot:
             for env in self.s_env[key]:
                 env.SetRandomRotation()
+
+    def GeneratePosDataset(self,key,size):
 
         for agent in self.agents:
             nbr_generated_data = 0
@@ -180,8 +186,13 @@ class TrainingMaster :
         print("\nTraining starting :\n")
         epoch_ctr = 0
         val_ctr = 0
+        accuracy = []
+        best_accuracy = 0
         self.GeneratePosDataset("train",self.max_train_memory_size)
+        self.RotateEnvironments("train")
         self.GeneratePosDataset("val",self.max_val_memory_size)
+        self.RotateEnvironments("val")
+
 
         while epoch_ctr < max_epoch:
             val_done = False
@@ -196,13 +207,30 @@ class TrainingMaster :
                         agent.Train(data_loader,dim)
                         if val >= val_freq:
                             val_data_loader = self.GenerateDataLoader("val",agent,dim)
-                            agent.Validate(val_data_loader,dim)
+                            accuracy.append(agent.Validate(val_data_loader,dim))
                             val = 0
                             val_done = True
 
             val_ctr += data_update_freq
             if val_done:
+                mean_accuracy = sum(accuracy) / len(accuracy)
+                if mean_accuracy > best_accuracy:
+                    save_path = os.path.join(self.model_dir,"FeatureExtract_DCCNet.pth")
+                    torch.save(
+                        self.featNet.state_dict(), save_path
+                    )
+                    # data_model["best"] = save_path
+                    print("Feature Extracting modelodel Was Saved ! Previous Best Avg. accuracy: {} Current Avg. accuracy: {}".format(best_accuracy, mean_accuracy))
+                    best_accuracy = mean_accuracy
+                else:
+                    print("Feature Extracting modelodel Not Saved ! Best Avg. accuracy: {} Current Avg. accuracy: {}".format(best_accuracy, mean_accuracy))
+
+                print("")
+                self.RotateEnvironments("train")
                 val_ctr = 0
+                accuracy = []
+
+
 
             print("\nGlobal loop :",epoch_ctr+1,": done in %2.1f seconds" % (time.time() - start_time),"\n")
             print("==========================================================================\n")

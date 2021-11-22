@@ -11,16 +11,20 @@ from torch.utils.tensorboard import SummaryWriter
 from torch import nn
 from tqdm.std import tqdm
 # from torchvision import models
+from monai.networks.nets.densenet import (
+    DenseNet
+)
 
 class Brain:
     def __init__(
         self,
         network_type,
         network_nbr,
-        device, 
+        device,
         in_channels,
-        in_size,
         out_channels,
+        feature_extract_net,
+        pretrained_featNet = False,
         model_dir = "",
         model_name = "",
         run_dir = "",
@@ -31,7 +35,6 @@ class Brain:
     ) -> None:
         self.network_type = network_type
         self.in_channels = in_channels
-        self.in_size = in_size
         self.out_channels = out_channels
 
         self.verbose = verbose
@@ -39,6 +42,9 @@ class Brain:
         self.device = device
         self.batch_size = batch_size
         self.learning_rate = learning_rate
+
+        self.featNet = feature_extract_net
+        self.featNetPretrained = pretrained_featNet
 
         networks = []
         global_epoch = []
@@ -54,12 +60,11 @@ class Brain:
         for n in range(network_nbr):
             net = network_type(
                 in_channels = in_channels,
-                in_size = in_size,
                 out_channels = out_channels,
             )
             net.to(self.device)
             networks.append(net)
-            optimizers.append(optim.Adam(net.parameters(), lr=learning_rate))
+            optimizers.append(optim.Adam(list(self.featNet.parameters()) + list(net.parameters()), lr=learning_rate))
             epoch_losses.append([0])
             validation_metrics.append([])
             best_metrics.append(0)
@@ -98,12 +103,11 @@ class Brain:
     def ResetNet(self,n):
         net = self.network_type(
             in_channels = self.in_channels,
-            in_size = self.in_size,
             out_channels = self.out_channels,
         )
         net.to(self.device)
         self.networks[n] = net
-        self.optimizers[n] = optim.Adam(net.parameters(), lr=self.learning_rate)
+        self.optimizers[n] = optim.Adam(list(self.featNet.parameters()) + list(net.parameters()), lr=self.learning_rate)
         self.epoch_losses[n] = [0]
         self.validation_metrics[n] = []
         self.best_metrics[n] = 0
@@ -114,9 +118,11 @@ class Brain:
     def Predict(self,dim,state):
         network = self.networks[dim]
         network.eval()
+        self.featNet.eval()
         with torch.no_grad():
             input = torch.unsqueeze(state,0).type(torch.float32).to(self.device)
-            x = network(input)
+            y = self.featNet(input)
+            x = network(y)
         return torch.argmax(x)
 
     def Train(self,data,n):
@@ -128,6 +134,11 @@ class Brain:
             print("training epoch:",self.global_epoch[n],"for network :",n)
 
         network.train()
+        if self.featNetPretrained:
+            self.featNet.eval()
+        else:
+            self.featNet.train()
+
         epoch_loss = 0
         epoch_good_move = 0
         epoch_iterator = tqdm(
@@ -145,7 +156,8 @@ class Brain:
             # self.writer.add_image('Crop of network '+str(n)+' at epoch ' + str(self.global_epoch[n]),img_grid)
             
             optimizer.zero_grad()
-            y = network(input) 
+            y1 = self.featNet(input)
+            y = network(y1)
             loss = self.loss_fn(y,target)
             loss.backward()
             optimizer.step()
@@ -189,6 +201,7 @@ class Brain:
         
         network = self.networks[n]
         network.eval()
+        self.featNet.eval()
         with torch.no_grad():
             running_loss = 0
             good_move = 0
@@ -201,7 +214,8 @@ class Brain:
                 # print(torch.min(batch["state"]),torch.max(batch["state"]))
                 input,target = batch["state"].type(torch.float32).to(self.device),batch["target"].to(self.device)
 
-                y = network(input)
+                y1 = self.featNet(input)
+                y = network(y1)
                 loss = self.loss_fn(y,target)
 
                 for i in range(self.batch_size):
@@ -236,9 +250,11 @@ class Brain:
         print("--------------------------------------------------------------------------")
         if self.generate_tensorboard:
             writer = self.writers[n]
-            writer.add_graph(network,input)
+            # writer.add_graph(network,input)
             writer.add_scalar("Validation accuracy",metric,self.global_epoch[n])
             writer.close()
+
+        return metric
 
     def LoadModels(self,model_lst):
         for n,net in enumerate(self.networks):
@@ -249,20 +265,46 @@ class Brain:
 #  Networks
 # #####################################
 
+
+def Gen121DensNet(i_channels=1,o_channels=1000):
+    DCCN = DenseNet(
+        spatial_dims=3,
+        in_channels=i_channels,
+        out_channels=o_channels,
+    )
+    return DCCN
+
+class ADL(nn.Module): # AgentDensLayers
+    def __init__(
+        self,
+        in_channels: int = 1000,
+        out_channels: int = 6,
+        dropout_rate: float = 0.0,
+    ) -> None:
+        super(ADL, self).__init__()
+        self.fc0 = nn.Linear(in_channels,out_channels)
+        nn.init.xavier_uniform_(self.fc0.weight)
+
+
+    def forward(self,x):
+        # print(x.size())
+        # x = self.norm(x)
+        out = F.relu(self.fc0(x))
+
+        return out
+
 class DQN(nn.Module):
     def __init__(
         self,
         in_channels: int = 1,
-        in_size = [64,64,64],
         out_channels: int = 6,
         dropout_rate: float = 0.0,
     ) -> None:
         super(DQN, self).__init__()
         if not (0 <= dropout_rate <= 1):
             raise ValueError("dropout_rate should be between 0 and 1.")
-        # self.norm = nn.LayerNorm(in_size)
         self.conv1 = nn.Conv3d(
-            in_channels, 
+            in_channels = in_channels, 
             out_channels = 32, 
             kernel_size = 4, 
         )
@@ -280,7 +322,7 @@ class DQN(nn.Module):
         )
         self.pool3 = nn.AvgPool3d(2)
 
-        self.fc0 = nn.Linear(128*6*6*6,512)
+        self.fc0 = nn.Linear(in_channels,512)
         self.fc1 = nn.Linear(512, 256)
         self.fc2 = nn.Linear(256, 128)
         self.fc3 = nn.Linear(128, out_channels)
@@ -318,14 +360,12 @@ class MaxDQN(nn.Module):
     def __init__(
         self,
         in_channels: int = 1,
-        in_size = [64,64,64],
         out_channels: int = 6,
         dropout_rate: float = 0.0,
     ) -> None:
         super(MaxDQN, self).__init__()
         if not (0 <= dropout_rate <= 1):
             raise ValueError("dropout_rate should be between 0 and 1.")
-        # self.norm = nn.LayerNorm(in_size)
         self.conv1 = nn.Conv3d(
             in_channels, 
             out_channels = 32, 

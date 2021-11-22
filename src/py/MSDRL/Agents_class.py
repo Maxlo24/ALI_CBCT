@@ -128,7 +128,7 @@ class DQNAgent :
     def Validate(self, data,dim):
         if self.verbose:
             print("Validating agent :", self.target)
-        self.brain.Validate(data,dim)
+        return self.brain.Validate(data,dim)
 
     def SavePos(self):
         self.position_mem[self.scale_state].append(self.position)

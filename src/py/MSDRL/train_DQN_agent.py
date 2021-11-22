@@ -11,7 +11,7 @@ import torch
 import datetime
 
 from GlobalVar import*
-from Models_class import (Brain,DQN,MaxDQN)
+from Models_class import (Brain,ADL,DQN,MaxDQN,Gen121DensNet)
 from Agents_class import (DQNAgent)
 from Environement_class import (Environement)
 from TrainingManager_class import (TrainingMaster)
@@ -50,19 +50,27 @@ def main(args):
     environement_lst, agent_lst = GetTrainingEnvironementsAgents(environments_param,agents_param)
     # agent_lst = [agent_lst[0]]
 
+    trainsitionLayerSize = 1000
+
+    featNet = Gen121DensNet(
+        i_channels=1,
+        o_channels=trainsitionLayerSize
+    )
+
     for agent in agent_lst:
         dir_path = os.path.join(args.dir_model,agent.target)
         if not os.path.exists(dir_path):
             os.makedirs(dir_path)
         agent.SetBrain(Brain(
-            network_type = DQN,
+            network_type = ADL,
             network_nbr = dim,
             model_dir = dir_path,
             model_name = agent.target,
             device = DEVICE,
-            in_channels = 1,
-            in_size = args.agent_FOV,
+            in_channels = trainsitionLayerSize,
             out_channels = len(movements["id"]),
+            feature_extract_net=featNet,
+            pretrained_featNet=False,
             learning_rate = args.learning_rate,
             batch_size= batch_size,
             generate_tensorboard=True,
@@ -72,6 +80,8 @@ def main(args):
     Master = TrainingMaster(
         environement_lst= environement_lst,
         agent_lst = agent_lst, 
+        featNet = featNet,
+        model_dir = args.dir_model,
         max_train_memory_size = data_size,
         max_val_memory_size= data_size*2,
         val_percentage = args.test_percentage/100,
@@ -91,6 +101,9 @@ def main(args):
     # CheckCrops(Master,agent)
     # e = environement_lst[1]
     # e.SetRandomRotation()
+    # e.SetRandomRotation()
+    # e.SetRandomRotation()
+
     # e.SaveCBCT(0,"/Users/luciacev-admin/Desktop/test")
     # e.SaveCBCT(1,"/Users/luciacev-admin/Desktop/test")
 
@@ -116,8 +129,8 @@ if __name__ ==  '__main__':
     input_group.add_argument('--dir_model', type=str, help='Output directory of the training',default= parser.parse_args().dir_data+'/ALI_CNN_models_'+datetime.datetime.now().strftime("%Y_%d_%m"))
 
     #Environment
-    input_group.add_argument('-lm','--landmarks',nargs="+",type=str,help="Prepare the data for uper and/or lower landmark training (ex: U L CB)", default=["CB","L"])
-    input_group.add_argument('-sp', '--spacing', nargs="+", type=float, help='Spacing of the different scales', default=[1])
+    input_group.add_argument('-lm','--landmarks',nargs="+",type=str,help="Prepare the data for uper and/or lower landmark training (ex: U L CB)", default=["CB"])
+    input_group.add_argument('-sp', '--spacing', nargs="+", type=float, help='Spacing of the different scales', default=[1,0.3])
     
     #Agent
     input_group.add_argument('-fov', '--agent_FOV', nargs="+", type=float, help='Wanted crop size', default=[64,64,64])

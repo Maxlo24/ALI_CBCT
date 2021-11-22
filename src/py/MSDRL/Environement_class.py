@@ -6,6 +6,7 @@ import numpy as np
 import torch
 import os
 import json
+import copy
 
 # ----- MONAI ------
 # from monai.losses import DiceCELoss
@@ -74,6 +75,7 @@ class Environement :
 
         self.dim = len(data)
         self.data = data
+        self.original_data = data.copy()
         self.sizes = sizes
         self.spacings = spacings
         self.origins = origins
@@ -114,6 +116,9 @@ class Environement :
             dim_lm.append({})
         self.dim_landmarks = dim_lm
 
+        self.original_dim_landmarks = copy.deepcopy(self.dim_landmarks)
+
+
     def AddPredictedLandmark(self,lm_id,lm_pos):
         self.predicted_landmarks[lm_id] = lm_pos
 
@@ -125,6 +130,8 @@ class Environement :
                 lm_coord = (lm_ph_coord+ abs(self.origins[i]))/self.spacings[i]
                 lm_coord = lm_coord.astype(int)
                 self.dim_landmarks[i][lm] = lm_coord
+
+        self.original_dim_landmarks = copy.deepcopy(self.dim_landmarks)
 
     def LoadJsonLandmarks(self,fiducial_path):
         with open(fiducial_path) as f:
@@ -138,6 +145,8 @@ class Environement :
                 lm_coord = lm_coord.astype(int)
                 self.dim_landmarks[i][markup["label"]] = lm_coord
 
+        self.original_dim_landmarks = copy.deepcopy(self.dim_landmarks)
+
         # print(markups)
 
     def LandmarkIsPresent(self,landmark):
@@ -150,13 +159,13 @@ class Environement :
 
     def GenerateLandmarkImg(self,dim):
 
-        new_image = sitk.Image((np.array(self.sizes[dim])+2*self.padding).tolist(), sitk.sitkInt16)
+        new_image = sitk.Image(np.array(self.original_data[dim][0].shape).tolist(), sitk.sitkInt16)
         
         img_ar = np.array(sitk.GetArrayFromImage(new_image))#.astype(dtype=np.float32)
         img_ar = img_ar.transpose(2,1,0)
 
         lm_id = 0
-        for lm,pos in self.dim_landmarks[dim].items():
+        for lm,pos in self.original_dim_landmarks[dim].items():
             lm_id+=1
             ppos = pos + self.padding
             img_ar[ppos[0]][ppos[1]][ppos[2]] = lm_id
@@ -175,19 +184,18 @@ class Environement :
 
     def SetRandomRotation(self):
         # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-        rand_angle_theta =  0#2*np.random.rand()*np.pi
-        rand_angle_phi = 0#np.random.rand()*np.pi
+        rand_angle_theta =  2*np.random.rand()*np.pi
+        rand_angle_phi = np.random.rand()*np.pi
         rot_transform = Rotated(
             keys=["image","landmarks"],
             angle=[rand_angle_theta,rand_angle_phi,0],
             mode=("bilinear","nearest"),
             keep_size=False,
         )
-        for i,data in enumerate(self.data):
+        for i,data in enumerate(self.original_data):
             print("Rotating env:",self.images_path[i])
             data_dic = {
-                "image":data.to(self.device),
+                "image":data.clone().to(self.device),
                 "landmarks":self.GenerateLandmarkImg(i).to(self.device)
                 }
 
@@ -197,7 +205,7 @@ class Environement :
             # print(type(self.sizes[i]))
             # print(type(rotated_img[0].shape - self.padding*2))
             self.sizes[i] = rotated_img[0].shape - self.padding*2
-            self.data[i] = rotated_img
+            self.data[i] = rotated_img.cpu()
             rotated_lm_img = rotated_data["landmarks"]
 
             lm_array = rotated_lm_img[0].cpu().numpy().astype(np.int16)

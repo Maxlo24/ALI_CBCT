@@ -19,6 +19,7 @@ from monai.transforms import (
     SpatialCrop,
     BorderPad,
     Rotated,
+    Rotate
 )
 
 from utils import(
@@ -186,30 +187,49 @@ class Environement :
         # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         rand_angle_theta =  2*np.random.rand()*np.pi
         rand_angle_phi = np.random.rand()*np.pi
-        rot_transform = Rotated(
-            keys=["image","landmarks"],
+        # rot_transform = Rotated(
+        #     keys=["image","landmarks"],
+        #     angle=[rand_angle_theta,rand_angle_phi,0],
+        #     mode=("bilinear","nearest"),
+        #     keep_size=False,
+        # )
+        BillinearRot = Rotate(
             angle=[rand_angle_theta,rand_angle_phi,0],
-            mode=("bilinear","nearest"),
+            mode="bilinear",
             keep_size=False,
         )
+        NearestRot = Rotate(
+            angle=[rand_angle_theta,rand_angle_phi,0],
+            mode="nearest",
+            keep_size=False,
+        )
+
+
         for i,data in enumerate(self.original_data):
             print("Rotating env:",self.images_path[i])
-            data_dic = {
-                "image":data.clone().to(self.device),
-                "landmarks":self.GenerateLandmarkImg(i).to(self.device)
-                }
+            # data_dic = {
+            #     "image":data.to(self.device),
+            #     "landmarks":self.GenerateLandmarkImg(i).to(self.device)
+            #     }
 
-            rotated_data = rot_transform(data_dic)
+            os.system("gpustat")
+
             # print(rotated_data["image"])
-            rotated_img = rotated_data["image"]
+            rotated_img = BillinearRot(data.to(self.device)).cpu()
+            self.data[i] = rotated_img
+            self.sizes[i] = rotated_img[0].shape - self.padding*2
+            os.system("gpustat")
+
             # print(type(self.sizes[i]))
             # print(type(rotated_img[0].shape - self.padding*2))
-            self.sizes[i] = rotated_img[0].shape - self.padding*2
-            self.data[i] = rotated_img.cpu()
-            rotated_lm_img = rotated_data["landmarks"]
-
-            lm_array = rotated_lm_img[0].cpu().numpy().astype(np.int16)
+            rotated_lm_img = NearestRot(self.GenerateLandmarkImg(i).to(self.device)).cpu()
+            lm_array = rotated_lm_img[0].numpy().astype(np.int16)
             # print(np.shape(lm_array))
+            os.system("gpustat")
+
+            torch.cuda.empty_cache()
+            os.system("gpustat")
+
 
             lm_id = 0
             for lm,pos in self.dim_landmarks[i].items():

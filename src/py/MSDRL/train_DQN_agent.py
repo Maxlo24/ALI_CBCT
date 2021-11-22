@@ -55,7 +55,7 @@ def main(args):
     featNet = Gen121DensNet(
         i_channels=1,
         o_channels=trainsitionLayerSize
-    )
+    ).to(DEVICE)
 
     for agent in agent_lst:
         dir_path = os.path.join(args.dir_model,agent.target)

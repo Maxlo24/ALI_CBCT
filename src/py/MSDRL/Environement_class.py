@@ -51,7 +51,7 @@ class Environement :
         self.device = device
         self.verbose = verbose
         self.transform = Compose([AddChannel(),BorderPad(spatial_border=self.padding.tolist()),ScaleIntensity(minv = -1.0, maxv = 1.0, factor = None)])
-        # self.transform = Compose([AddChannel(),BorderPad(spatial_border=[1,1,1]),ScaleIntensity(minv = -1.0, maxv = 1.0, factor = None)])
+        self.pad1_transform = Compose([AddChannel(),BorderPad(spatial_border=[1,1,1]),ScaleIntensity(minv = -1.0, maxv = 1.0, factor = None)])
 
         # self.transform = Compose([AddChannel(),BorderPad(spatial_border=self.padding.tolist())])
         self.predicted_landmarks = {}
@@ -60,6 +60,7 @@ class Environement :
         self.images_path = images_path
 
         data = []
+        original_data = []
         sizes = []
         spacings = []
         origins = []
@@ -72,11 +73,12 @@ class Environement :
             origins.append(np.array([origin[2],origin[1],origin[0]]))
             img_ar = sitk.GetArrayFromImage(img)
             sizes.append(np.array(np.shape(img_ar)))
+            original_data.append(torch.from_numpy(self.pad1_transform(img_ar)).type(torch.float16))
             data.append(torch.from_numpy(self.transform(img_ar)).type(torch.float16))
 
         self.dim = len(data)
         self.data = data
-        self.original_data = data.copy()
+        self.original_data = original_data
         self.sizes = sizes
         self.spacings = spacings
         self.origins = origins
@@ -160,6 +162,7 @@ class Environement :
 
     def GenerateLandmarkImg(self,dim):
 
+        # print(self.original_data[dim][0].shape)
         new_image = sitk.Image(np.array(self.original_data[dim][0].shape).tolist(), sitk.sitkInt16)
         
         img_ar = np.array(sitk.GetArrayFromImage(new_image))#.astype(dtype=np.float32)
@@ -168,7 +171,7 @@ class Environement :
         lm_id = 0
         for lm,pos in self.original_dim_landmarks[dim].items():
             lm_id+=1
-            ppos = pos + self.padding
+            ppos = pos + [1,1,1]
             img_ar[ppos[0]][ppos[1]][ppos[2]] = lm_id
             img_ar[ppos[0]+1][ppos[1]][ppos[2]] = lm_id
             img_ar[ppos[0]][ppos[1]+1][ppos[2]] = lm_id
@@ -187,12 +190,7 @@ class Environement :
         # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         rand_angle_theta =  2*np.random.rand()*np.pi
         rand_angle_phi = np.random.rand()*np.pi
-        # rot_transform = Rotated(
-        #     keys=["image","landmarks"],
-        #     angle=[rand_angle_theta,rand_angle_phi,0],
-        #     mode=("bilinear","nearest"),
-        #     keep_size=False,
-        # )
+
         BillinearRot = Rotate(
             angle=[rand_angle_theta,rand_angle_phi,0],
             mode="bilinear",
@@ -203,40 +201,33 @@ class Environement :
             mode="nearest",
             keep_size=False,
         )
+        pad = BorderPad(spatial_border=(self.padding - [1,1,1]).tolist())
 
 
         for i,data in enumerate(self.original_data):
             print("Rotating env:",self.images_path[i])
-            # data_dic = {
-            #     "image":data.to(self.device),
-            #     "landmarks":self.GenerateLandmarkImg(i).to(self.device)
-            #     }
 
-            os.system("gpustat")
 
-            # print(rotated_data["image"])
+            # os.system("gpustat")
+
+            # print(data.shape)
             rotated_img = BillinearRot(data.to(self.device)).cpu()
-            self.data[i] = rotated_img
-            self.sizes[i] = rotated_img[0].shape - self.padding*2
-            os.system("gpustat")
+            self.data[i] = pad(rotated_img)
+            self.sizes[i] = rotated_img[0].shape - np.array([2,2,2])
 
             # print(type(self.sizes[i]))
             # print(type(rotated_img[0].shape - self.padding*2))
             rotated_lm_img = NearestRot(self.GenerateLandmarkImg(i).to(self.device)).cpu()
             lm_array = rotated_lm_img[0].numpy().astype(np.int16)
             # print(np.shape(lm_array))
-            os.system("gpustat")
 
             torch.cuda.empty_cache()
-            os.system("gpustat")
-
 
             lm_id = 0
             for lm,pos in self.dim_landmarks[i].items():
                 lm_id+=1
                 ppos = np.where(lm_array==lm_id)
-                self.dim_landmarks[i][lm] = np.array([int(np.mean(ppos[0])),int(np.mean(ppos[1])),int(np.mean(ppos[2]))]) - self.padding
-
+                self.dim_landmarks[i][lm] = np.array([int(np.mean(ppos[0])),int(np.mean(ppos[1])),int(np.mean(ppos[2]))]) - [1,1,1]
 
     # GET
 

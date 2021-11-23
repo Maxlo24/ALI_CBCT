@@ -50,8 +50,8 @@ class Environement :
         self.padding = padding.astype(np.int16)
         self.device = device
         self.verbose = verbose
-        self.transform = Compose([AddChannel(),BorderPad(spatial_border=self.padding.tolist()),ScaleIntensity(minv = -1.0, maxv = 1.0, factor = None)])
-        self.pad1_transform = Compose([AddChannel(),BorderPad(spatial_border=[1,1,1]),ScaleIntensity(minv = -1.0, maxv = 1.0, factor = None)])
+        self.transform = Compose([AddChannel(),BorderPad(spatial_border=self.padding.tolist())])
+        self.pad1_transform = Compose([AddChannel(),BorderPad(spatial_border=[1,1,1])])
 
         # self.transform = Compose([AddChannel(),BorderPad(spatial_border=self.padding.tolist())])
         self.predicted_landmarks = {}
@@ -73,8 +73,8 @@ class Environement :
             origins.append(np.array([origin[2],origin[1],origin[0]]))
             img_ar = sitk.GetArrayFromImage(img)
             sizes.append(np.array(np.shape(img_ar)))
-            original_data.append(torch.from_numpy(self.pad1_transform(img_ar)).type(torch.float16))
-            data.append(torch.from_numpy(self.transform(img_ar)).type(torch.float16))
+            original_data.append(torch.from_numpy(self.pad1_transform(img_ar)).type(torch.int16))
+            data.append(torch.from_numpy(self.transform(img_ar)).type(torch.int16))
 
         self.dim = len(data)
         self.data = data
@@ -102,7 +102,7 @@ class Environement :
             origins.append(np.array([origin[2],origin[1],origin[0]]))
             img_ar = sitk.GetArrayFromImage(img)#.astype(dtype=np.float32)
             sizes.append(np.array(np.shape(img_ar)))
-            data.append(torch.from_numpy(self.transform(img_ar)).type(torch.float16))
+            data.append(torch.from_numpy(self.transform(img_ar)).type(torch.int16))
 
         self.dim = len(data)
         self.data = data
@@ -203,21 +203,23 @@ class Environement :
         )
         pad = BorderPad(spatial_border=(self.padding - [1,1,1]).tolist())
 
-
         for i,data in enumerate(self.original_data):
             print("Rotating env:",self.images_path[i])
 
 
             # os.system("gpustat")
+            # print(self.sizes)
 
             # print(data.shape)
             rotated_img = BillinearRot(data.to(self.device)).cpu()
+            rotated_lm_img = NearestRot(self.GenerateLandmarkImg(i).to(self.device)).cpu()
+
             self.data[i] = pad(rotated_img)
             self.sizes[i] = rotated_img[0].shape - np.array([2,2,2])
 
+            # print(self.sizes)
             # print(type(self.sizes[i]))
             # print(type(rotated_img[0].shape - self.padding*2))
-            rotated_lm_img = NearestRot(self.GenerateLandmarkImg(i).to(self.device)).cpu()
             lm_array = rotated_lm_img[0].numpy().astype(np.int16)
             # print(np.shape(lm_array))
 
@@ -247,7 +249,7 @@ class Environement :
     def GetZone(self,dim,center,crop_size):
         cropTransform = SpatialCrop(center.tolist() + self.padding,crop_size)
         rescale = ScaleIntensity(minv = -1.0, maxv = 1.0, factor = None)
-        crop = rescale(cropTransform(self.data[dim])).type(torch.float16)
+        crop = rescale(cropTransform(self.data[dim])).type(torch.float32)
         return crop
 
     def GetRewardLst(self,dim,position,target,mvt_matrix):
@@ -402,6 +404,9 @@ class Environement :
             self.padding[1]:-self.padding[1],
             self.padding[2]:-self.padding[2]].type(torch.float32)
         )
+        # output = sitk.GetImageFromArray(
+        #     data[0].type(torch.float32)
+        # )
         writer = sitk.ImageFileWriter()
         writer.SetFileName(os.path.join(out_path,scan_name))
         writer.Execute(output)

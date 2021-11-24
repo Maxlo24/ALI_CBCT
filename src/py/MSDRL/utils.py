@@ -38,29 +38,38 @@ def GetEnvironmentLst(environments_param):
     U_fcsv_lst = []
     L_fcsv_lst = []
     CB_fcsv_lst = []
+
+    LM_file_lst = []
     
 
     print("Reading folder : ", environments_param["dir"])
     print("Selected spacings : ", environments_param["spacings"])
-    		
+    
+    spacing_str = ["_"+str(spacing).replace(".","-") for spacing in environments_param["spacings"]]
+
     normpath = os.path.normpath("/".join([environments_param["dir"], '**', '']))
     for img_fn in sorted(glob.iglob(normpath, recursive=True)):
         #  print(img_fn)
         if os.path.isfile(img_fn) and True in [ext in img_fn for ext in [".nrrd", ".nrrd.gz", ".nii", ".nii.gz", ".gipl", ".gipl.gz"]]:
             baseName = os.path.basename(img_fn)
             if True in [scan in baseName for scan in ["scan","Scan"]]:
-                for i,spacing in enumerate(environments_param["spacings"]):
-                    if "_"+str(spacing) in baseName:
+                for i,sp_str in enumerate(spacing_str):
+                    if sp_str in baseName:
                         scan_lst[i].append(img_fn)
 
-        if os.path.isfile(img_fn) and ".mrk.json" in img_fn:
-            baseName = os.path.basename(img_fn)
-            if "_U." in baseName :
-                U_fcsv_lst.append(img_fn)
-            elif "_L." in baseName :
-                L_fcsv_lst.append(img_fn)
-            elif "_CB." in baseName :
-                CB_fcsv_lst.append(img_fn)
+        if not environments_param["rotated"]:
+            if os.path.isfile(img_fn) and ".mrk.json" in img_fn:
+                baseName = os.path.basename(img_fn)
+                if "_U." in baseName :
+                    U_fcsv_lst.append(img_fn)
+                elif "_L." in baseName :
+                    L_fcsv_lst.append(img_fn)
+                elif "_CB." in baseName :
+                    CB_fcsv_lst.append(img_fn)
+
+        else:
+            if os.path.isfile(img_fn) and ".json" in img_fn:
+                LM_file_lst.append(img_fn)
 
 
     data_lst = []

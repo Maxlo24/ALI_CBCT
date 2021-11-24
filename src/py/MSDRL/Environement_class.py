@@ -112,6 +112,30 @@ class Environement :
 
         self.ResetLandmarks()
 
+    def LoadRotatedData(self,data):
+        self.dim = len(data)
+
+        self.ResetLandmarks()
+        data = []
+        original_data = []
+        sizes = []
+        for i,element in enumerate(data):
+            img = sitk.ReadImage(element["scan"])
+            img_ar = sitk.GetArrayFromImage(img)
+            sizes.append(np.array(np.shape(img_ar)))
+            original_data.append(torch.from_numpy(self.pad1_transform(img_ar)).type(torch.int16))
+            data.append(torch.from_numpy(self.transform(img_ar)).type(torch.int16))
+
+            with open(element["landmarks"]) as f:
+                lm_data = json.load(f)
+                for lm,pos in lm_data.items():
+                    self.dim_landmarks[i][lm] = np.array(pos,dtype=np.int16)
+
+        self.data = data
+        self.original_data = original_data
+        self.sizes = sizes
+        self.original_dim_landmarks = copy.deepcopy(self.dim_landmarks)
+
 
     def ResetLandmarks(self):
         dim_lm = []
@@ -153,12 +177,13 @@ class Environement :
         # print(markups)
 
     def LandmarkIsPresent(self,landmark):
-        if landmark in self.dim_landmarks[0].keys():
-            return True
-        else:
-            if self.verbose:
-                print(landmark, "missing in patient ", os.path.basename(os.path.dirname(self.images_path[0])))
-            return False
+        present = True
+        for lm in self.dim_landmarks:
+            if landmark not in lm.keys():
+                if self.verbose:
+                    print(landmark, "missing in patient ", os.path.basename(os.path.dirname(self.images_path[0])))
+                present = False
+        return present
 
     def GenerateLandmarkImg(self,dim):
 
@@ -402,7 +427,7 @@ class Environement :
         output = sitk.GetImageFromArray(
             data[0][self.padding[0]:-self.padding[0],
             self.padding[1]:-self.padding[1],
-            self.padding[2]:-self.padding[2]].type(torch.float32)
+            self.padding[2]:-self.padding[2]]
         )
         # output = sitk.GetImageFromArray(
         #     data[0].type(torch.float32)

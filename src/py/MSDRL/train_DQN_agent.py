@@ -36,7 +36,8 @@ def main(args):
         "spacings" : args.spacing,
         "padding" : np.array(args.agent_FOV)/2+1,
         "landmarks" : args.landmarks,
-        "verbose" : False
+        "verbose" : False,
+        "rotated" : True
     }
 
     agents_param = {

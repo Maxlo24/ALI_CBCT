@@ -254,8 +254,10 @@ class Environement :
             for lm,pos in self.dim_landmarks[i].items():
                 lm_id+=1
                 ppos = np.where(lm_array==lm_id)
-                self.dim_landmarks[i][lm] = np.array([int(np.mean(ppos[0])),int(np.mean(ppos[1])),int(np.mean(ppos[2]))]) - [1,1,1]
-
+                if len(ppos[0])>0:
+                    self.dim_landmarks[i][lm] = np.array([int(np.mean(ppos[0])),int(np.mean(ppos[1])),int(np.mean(ppos[2]))]) - [1,1,1]
+                else:
+                    print("Lost :", lm)
     # GET
 
     def GetLandmarkPos(self,dim,landmark):

@@ -45,7 +45,7 @@ def GetEnvironmentLst(environments_param):
     print("Reading folder : ", environments_param["dir"])
     print("Selected spacings : ", environments_param["spacings"])
     
-    spacing_str = ["_"+str(spacing).replace(".","-") for spacing in environments_param["spacings"]]
+    spacing_str = ["_sp"+str(spacing).replace(".","-") for spacing in environments_param["spacings"]]
 
     normpath = os.path.normpath("/".join([environments_param["dir"], '**', '']))
     for img_fn in sorted(glob.iglob(normpath, recursive=True)):

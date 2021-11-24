@@ -211,8 +211,8 @@ class Environement :
             # print(self.sizes)
 
             # print(data.shape)
-            rotated_img = BillinearRot(data.to(self.device)).cpu()
-            rotated_lm_img = NearestRot(self.GenerateLandmarkImg(i).to(self.device)).cpu()
+            rotated_img = BillinearRot(data)
+            rotated_lm_img = NearestRot(self.GenerateLandmarkImg(i))
 
             self.data[i] = pad(rotated_img)
             self.sizes[i] = rotated_img[0].shape - np.array([2,2,2])
@@ -342,7 +342,7 @@ class Environement :
 
         return sample_lst
 
-    def SavePredictedLandmarks(self):
+    def SavePredictedLandmarks(self,id = "pred_lm"):
 
         ref_origin = self.origins[-1]
         ref_spacing = self.spacings[-1]
@@ -368,7 +368,7 @@ class Environement :
             scan_name = os.path.basename(self.images_path[-1]).split(".")
             elements = scan_name[0].split("_")
             patient = elements[0] + "_" + elements[1]
-            json_name = patient + "_pred_lm_"+group+".mrk.json"
+            json_name = patient + "_"+id+"_"+group+".mrk.json"
 
             file_path = os.path.join(os.path.dirname(self.images_path[0]),json_name)
             groupe_data = {}
@@ -395,8 +395,8 @@ class Environement :
 
     def SaveCBCT(self,dim,out_path):
         data = self.data[dim]
-        scan_name = os.path.basename(self.images_path[dim])
-        print("Saving:",scan_name)
+        # scan_name = os.path.basename(self.images_path[dim])
+        print("Saving:",out_path)
         # print(self.padding)
         # print(data[0][self.padding[0]:-self.padding[0],self.padding[1]:-self.padding[1],self.padding[2]:-self.padding[2]].shape)
         output = sitk.GetImageFromArray(
@@ -408,24 +408,51 @@ class Environement :
         #     data[0].type(torch.float32)
         # )
         writer = sitk.ImageFileWriter()
-        writer.SetFileName(os.path.join(out_path,scan_name))
+        writer.SetFileName(out_path)
         writer.Execute(output)
 
-    def SaveEnvironmentState(self):
+    def SaveEnvironmentState(self,out_dir,id):
 
-        # self.SaveCBCT(0,"")
+        # self.SavePredictedLandmarks(id)
 
         landmarks = []
         for lm_dic in self.dim_landmarks:
             dic = {}
+            # print(lm_dic)
             for lm,pos in lm_dic.items():
                 dic[lm] = pos.tolist()
             landmarks.append(dic)
 
-        data = {
-            "files_path":self.images_path,
-            "Landmarks":landmarks
-        }
+        for dim in range(self.dim):
+            path = os.path.basename(self.images_path[dim]).replace("_scan_","_scan_"+id+"_")
+            path = os.path.join(out_dir,path)
+            # print(path)
+            self.SaveCBCT(dim,path)
 
-        with open('data.json', 'w') as fp:
-            json.dump(data, fp, ensure_ascii=False, indent=1)
+            data = {
+                # "files_path":self.images_path,
+                "Landmarks":landmarks[dim]
+            }
+            path = os.path.basename(self.images_path[dim]).replace("_scan_","_landmarks_"+id+"_")
+            path = path.split(".")[0] + ".json"
+            path = os.path.join(out_dir,path)
+            with open(path, 'w') as fp:
+                json.dump(data, fp, ensure_ascii=False, indent=1)
+
+
+        # self.SaveCBCT(0,"")
+
+        # landmarks = []
+        # for lm_dic in self.dim_landmarks[dim]:
+        #     dic = {}
+        #     for lm,pos in lm_dic.items():
+        #         dic[lm] = pos.tolist()
+        #     landmarks.append(dic)
+
+        # data = {
+        #     # "files_path":self.images_path,
+        #     "Landmarks":landmarks
+        # }
+
+        # with open(out_path, 'w') as fp:
+        #     json.dump(data, fp, ensure_ascii=False, indent=1)

@@ -34,6 +34,8 @@ def main(args):
         "type" : Environement,
         "dir" : args.dir_scans,
         "spacings" : args.spacing,
+        "padding" : np.array(args.agent_FOV)/2+1,
+        "landmarks" : args.landmarks,
         "verbose" : False
     }
 
@@ -139,8 +141,8 @@ if __name__ ==  '__main__':
 
 
     #Training data
-    input_group.add_argument('-bs', '--batch_size', type=int, help='Batch size', default=250)
-    input_group.add_argument('-ds', '--data_size', type=int, help='Size of the dataset', default=10000)
+    input_group.add_argument('-bs', '--batch_size', type=int, help='Batch size', default=2)
+    input_group.add_argument('-ds', '--data_size', type=int, help='Size of the dataset', default=10)
     input_group.add_argument('-duf', '--data_update_freq', type=int, help='Data update frequency', default=1)
     input_group.add_argument('-dur', '--data_update_ratio', type=float, help='Ratio of data to update', default=0.5)
     #Training param
@@ -148,7 +150,7 @@ if __name__ ==  '__main__':
     input_group.add_argument('-vf', '--val_freq', type=int, help='Validation frequency', default=5)
     input_group.add_argument('-tp', '--test_percentage', type=int, help='Percentage of data to keep for validation', default=10)
     input_group.add_argument('-lr', '--learning_rate', type=float, help='Learning rate', default=1e-4)
-    input_group.add_argument('-nw', '--nbr_worker', type=int, help='Number of worker', default=5)
+    input_group.add_argument('-nw', '--nbr_worker', type=int, help='Number of worker', default=0)
 
     args = parser.parse_args()
     

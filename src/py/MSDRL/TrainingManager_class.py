@@ -47,7 +47,7 @@ class TrainingMaster :
         env_dim = 2,
         num_worker = 1,
         batch_size = 20,
-        rand_rot = True,
+        rand_rot = False,
     ) -> None:
 
         self.featNet = featNet

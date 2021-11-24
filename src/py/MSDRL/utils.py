@@ -30,7 +30,7 @@ def GetAgentLst(agents_param):
             agent_lst.append(agt)
     return agent_lst
 
-def GetTrainingEnvironementsAgents(environments_param,agents_param):
+def GetEnvironmentLst(environments_param):
     scan_lst = []
     for spacing in environments_param["spacings"]:
        scan_lst.append([])
@@ -84,16 +84,22 @@ def GetTrainingEnvironementsAgents(environments_param,agents_param):
     for data in data_lst:
         print("Generating Environement for :" , os.path.dirname(data["images"][0]))
         env = environments_param["type"](
-            padding = np.array(agents_param["FOV"])/2+1,
+            padding = environments_param["padding"],
             device = DEVICE,
             verbose=environments_param["verbose"]
             )
         env.LoadImages(data["images"])
-        for lm in agents_param["landmarks"]:
+        for lm in environments_param["landmarks"]:
             env.LoadJsonLandmarks(data[lm])
 
         environement_lst.append(env)
 
+    return environement_lst
+    
+
+def GetTrainingEnvironementsAgents(environments_param,agents_param):
+
+    environement_lst = GetEnvironmentLst(environments_param)
     agent_lst = GetAgentLst(agents_param)
 
     print("Number of Environement generated :",len(environement_lst))

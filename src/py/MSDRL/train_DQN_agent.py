@@ -107,7 +107,8 @@ def main(args):
     # e.SetRandomRotation()
     # e.SetRandomRotation()
 
-    # e.SaveCBCT(0,"/Users/luciacev-admin/Desktop/test")
+    # e.SaveCBCT(1,"/Users/luciacev-admin/Desktop/test/test.nii.gz")
+    # print(e.dim_landmarks[1]["Ba"])
     # e.SaveCBCT(1,"/Users/luciacev-admin/Desktop/test")
 
     # e.SaveEnvironmentState()

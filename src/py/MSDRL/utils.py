@@ -32,14 +32,15 @@ def GetAgentLst(agents_param):
 
 def GetEnvironmentLst(environments_param):
     scan_lst = []
+    LM_file_lst = []
     for spacing in environments_param["spacings"]:
        scan_lst.append([])
+       LM_file_lst.append([])
 
     U_fcsv_lst = []
     L_fcsv_lst = []
     CB_fcsv_lst = []
 
-    LM_file_lst = []
     
 
     print("Reading folder : ", environments_param["dir"])
@@ -50,8 +51,8 @@ def GetEnvironmentLst(environments_param):
     normpath = os.path.normpath("/".join([environments_param["dir"], '**', '']))
     for img_fn in sorted(glob.iglob(normpath, recursive=True)):
         #  print(img_fn)
+        baseName = os.path.basename(img_fn)
         if os.path.isfile(img_fn) and True in [ext in img_fn for ext in [".nrrd", ".nrrd.gz", ".nii", ".nii.gz", ".gipl", ".gipl.gz"]]:
-            baseName = os.path.basename(img_fn)
             if True in [scan in baseName for scan in ["scan","Scan"]]:
                 for i,sp_str in enumerate(spacing_str):
                     if sp_str in baseName:
@@ -69,7 +70,10 @@ def GetEnvironmentLst(environments_param):
 
         else:
             if os.path.isfile(img_fn) and ".json" in img_fn:
-                LM_file_lst.append(img_fn)
+                for i,sp_str in enumerate(spacing_str):
+                    if sp_str in baseName:
+                        LM_file_lst[i].append(img_fn)
+
 
 
     data_lst = []
@@ -77,12 +81,21 @@ def GetEnvironmentLst(environments_param):
         data = {}
 
         images_path = []
-        for i,spacing in enumerate(environments_param["spacings"]):
-            images_path.append(scan_lst[i][n])
-        data["images"] = images_path
-        data["U"] = U_fcsv_lst[n]
-        data["L"] = L_fcsv_lst[n]
-        data["CB"] = CB_fcsv_lst[n]
+        if not environments_param["rotated"]:
+            for i,spacing in enumerate(environments_param["spacings"]):
+                images_path.append(scan_lst[i][n])
+            data["images"] = images_path
+            data["U"] = U_fcsv_lst[n]
+            data["L"] = L_fcsv_lst[n]
+            data["CB"] = CB_fcsv_lst[n]
+        else:
+            lm_data = []
+            for i,spacing in enumerate(environments_param["spacings"]):
+                lm_data.append({"scan":scan_lst[i][n],"landmarks":LM_file_lst[i][n]})
+                images_path.append(scan_lst[i][n])
+            data["images"] = images_path
+            data["landmarks"] = lm_data
+
 
         data_lst.append(data)
 
@@ -97,9 +110,12 @@ def GetEnvironmentLst(environments_param):
             device = DEVICE,
             verbose=environments_param["verbose"]
             )
-        env.LoadImages(data["images"])
-        for lm in environments_param["landmarks"]:
-            env.LoadJsonLandmarks(data[lm])
+        if not environments_param["rotated"]:
+            env.LoadImages(data["images"])
+            for lm in environments_param["landmarks"]:
+                env.LoadJsonLandmarks(data[lm])
+        else:
+            env.LoadRotatedData(data["landmarks"])
 
         environement_lst.append(env)
 

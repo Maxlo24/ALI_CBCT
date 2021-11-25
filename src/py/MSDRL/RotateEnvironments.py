@@ -62,7 +62,7 @@ if __name__ ==  '__main__':
 
     #Environment
     input_group.add_argument('-lm','--landmarks',nargs="+",type=str,help="Prepare the data for uper and/or lower landmark training (ex: U L CB)", default=["U","L","CB"])
-    input_group.add_argument('-sp', '--spacing', nargs="+", type=float, help='Spacing of the different scales', default=[1,0.3])
+    input_group.add_argument('-sp', '--spacing', nargs="+", type=float, help='Spacing of the different scales', default=[2,1])
     
     #Training data
     input_group.add_argument('-nr', '--nbr_rotataion', type=int, help='Rotataion number', default=10)

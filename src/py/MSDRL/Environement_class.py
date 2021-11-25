@@ -112,14 +112,16 @@ class Environement :
 
         self.ResetLandmarks()
 
-    def LoadRotatedData(self,data):
-        self.dim = len(data)
+    def LoadRotatedData(self,in_data):
+        self.dim = len(in_data)
 
         self.ResetLandmarks()
         data = []
         original_data = []
         sizes = []
-        for i,element in enumerate(data):
+        ref_imgs = []
+        for i,element in enumerate(in_data):
+            ref_imgs.append(element["scan"])
             img = sitk.ReadImage(element["scan"])
             img_ar = sitk.GetArrayFromImage(img)
             sizes.append(np.array(np.shape(img_ar)))
@@ -128,9 +130,11 @@ class Environement :
 
             with open(element["landmarks"]) as f:
                 lm_data = json.load(f)
-                for lm,pos in lm_data.items():
+                for lm,pos in lm_data["Landmarks"].items():
                     self.dim_landmarks[i][lm] = np.array(pos,dtype=np.int16)
-
+        
+        # print(ref_imgs)
+        self.images_path = ref_imgs
         self.data = data
         self.original_data = original_data
         self.sizes = sizes

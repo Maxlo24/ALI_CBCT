@@ -497,6 +497,15 @@ def  ReslutAccuracy(fiducial_dir):
     f.close
     return error_dic
 
+def ResultDiscretAccuracy(env_lst,sp):
+    error_dic = {"labels":[], "error":[]}
+    for env in env_lst:
+        for lm,pos in env.predicted_landmarks.items():
+            dist = np.linalg.norm(pos-env.GetLandmarkPos(-1,lm))*sp
+            error_dic["labels"].append(lm)
+            error_dic["error"].append(dist)
+    return error_dic
+
 
 def PlotResults(data):
     sns.set_theme(style="whitegrid")

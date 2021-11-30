@@ -36,7 +36,7 @@ def main(args):
         "padding" : np.array(args.agent_FOV)/2+1,
         "landmarks" : args.landmarks,
         "verbose" : False,
-        "rotated" : True
+        "rotated" : False
     }
 
     agents_param = {
@@ -44,11 +44,10 @@ def main(args):
         "FOV" : args.agent_FOV,
         "landmarks" : args.landmarks,
         "movements" : movements,
-        "spawn_rad" : args.spawn_radius,
+        "spawn_rad" : 10,
         "dim" : dim,
         "verbose" : True
     }
-
 
     # environement_lst = GenPredictEnvironment(environments_param,agents_param)
     environement_lst, agent_lst = GetTrainingEnvironementsAgents(environments_param,agents_param)
@@ -65,6 +64,7 @@ def main(args):
         o_channels=trainsitionLayerSize
     ).to(DEVICE)
 
+    print("Loading Feature Net" , args.feat_extract_model)
     featNet.load_state_dict(torch.load(args.feat_extract_model,map_location=DEVICE)) 
 
     for agent in agent_lst:

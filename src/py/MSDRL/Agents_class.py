@@ -151,7 +151,9 @@ class DQNAgent :
             if found:
                 if self.verbose:
                     print("Landmark found at scale :",self.scale_state)
-                    print("Agent pos = ", self.position, "Landmark pos = ", self.environement.GetLandmarkPos(self.scale_state,self.target))
+                    print("Agent pos = ", self.position)
+                    if self.environement.LandmarkIsPresent(self.target):
+                        print("Landmark pos = ", self.environement.GetLandmarkPos(self.scale_state,self.target))
                 scale_changed = self.UpScale()
                 found = not scale_changed
             if self.search_atempt > 2:

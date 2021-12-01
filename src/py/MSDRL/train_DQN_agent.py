@@ -149,7 +149,7 @@ if __name__ ==  '__main__':
     input_group.add_argument('-dur', '--data_update_ratio', type=float, help='Ratio of data to update', default=0.5)
     #Training param
     input_group.add_argument('-mi', '--max_epoch', type=int, help='Number of training epocs', default=1000)
-    input_group.add_argument('-vf', '--val_freq', type=int, help='Validation frequency', default=5)
+    input_group.add_argument('-vf', '--val_freq', type=int, help='Validation frequency', default=1)
     input_group.add_argument('-tp', '--test_percentage', type=int, help='Percentage of data to keep for validation', default=10)
     input_group.add_argument('-lr', '--learning_rate', type=float, help='Learning rate', default=1e-4)
     input_group.add_argument('-nw', '--nbr_worker', type=int, help='Number of worker', default=0)

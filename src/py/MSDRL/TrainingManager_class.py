@@ -187,7 +187,7 @@ class TrainingMaster :
         epoch_ctr = 0
         val_ctr = 0
         accuracy = []
-        best_accuracy = 0
+        best_accuracy = 9999999
         self.GeneratePosDataset("train",self.max_train_memory_size)
         self.RotateEnvironments("train")
         self.GeneratePosDataset("val",self.max_val_memory_size)
@@ -214,7 +214,7 @@ class TrainingMaster :
             val_ctr += data_update_freq
             if val_done:
                 mean_accuracy = sum(accuracy) / len(accuracy)
-                if mean_accuracy > best_accuracy:
+                if mean_accuracy < best_accuracy:
                     save_path = os.path.join(self.model_dir,"FeatureExtract_DCCNet.pth")
                     torch.save(
                         self.featNet.state_dict(), save_path

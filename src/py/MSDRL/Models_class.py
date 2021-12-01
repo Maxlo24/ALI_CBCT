@@ -67,7 +67,7 @@ class Brain:
             optimizers.append(optim.Adam(list(self.featNet.parameters()) + list(net.parameters()), lr=learning_rate))
             epoch_losses.append([0])
             validation_metrics.append([])
-            best_metrics.append(0)
+            best_metrics.append(999999)
             global_epoch.append(0)
             best_epoch.append(0)
 
@@ -110,7 +110,7 @@ class Brain:
         self.optimizers[n] = optim.Adam(list(self.featNet.parameters()) + list(net.parameters()), lr=self.learning_rate)
         self.epoch_losses[n] = [0]
         self.validation_metrics[n] = []
-        self.best_metrics[n] = 0
+        self.best_metrics[n] = 999999
         self.global_epoch[n] = 0
         self.best_epoch[n] = 0
 

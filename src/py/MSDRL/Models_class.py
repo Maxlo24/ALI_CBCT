@@ -84,7 +84,7 @@ class Brain:
                 writers.append(SummaryWriter(run_path))
 
 
-        self.loss_fn = nn.CrossEntropyLoss()
+        self.loss_fn = nn.MSELoss(reduction='sum')
         self.optimizers = optimizers
         self.writers = writers
 
@@ -149,7 +149,7 @@ class Brain:
         for step, batch in enumerate(epoch_iterator):
             # print(batch["state"].size(),batch["target"].size())
             # print(torch.min(batch["state"]),torch.max(batch["state"]) , batch["state"].type())
-            input,target = batch["state"].type(torch.float32).to(self.device),batch["target"].to(self.device)
+            input,target = batch["state"].type(torch.float32).to(self.device),batch["target"].type(torch.float32).to(self.device)
             
             
             # img_grid = torchvision.utils.make_grid(batch["state"])
@@ -158,19 +158,20 @@ class Brain:
             optimizer.zero_grad()
             y1 = self.featNet(input)
             y = network(y1)
+            # print(y,target)
             loss = self.loss_fn(y,target)
             loss.backward()
             optimizer.step()
             epoch_loss +=loss.item()
-            for i in range(self.batch_size):
-                if torch.eq(torch.argmax(y[i]),target[i]):
-                    epoch_good_move +=1
+            # for i in range(self.batch_size):
+            #     if torch.eq(torch.argmax(y[i]),target[i]):
+            #         epoch_good_move +=1
             epoch_iterator.set_description(
                 "Training loss=%2.5f" % (loss)
             )
 
         epoch_loss /= step+1
-        metric = epoch_good_move/((step+1)*self.batch_size)
+        # metric = epoch_good_move/((step+1)*self.batch_size)
         
         if self.epoch_losses[n][-1] == epoch_loss: #If learning is stuck
             self.ResetNet(n)
@@ -182,12 +183,12 @@ class Brain:
             if self.verbose:
                 print()
                 print("Average epoch Loss :",epoch_loss)
-                print("Porcentage of good moves :",metric*100,"%")
+                # print("Porcentage of good moves :",metric*100,"%")
 
             if self.generate_tensorboard:
                 writer = self.writers[n]
                 writer.add_scalar("Training loss",epoch_loss,self.global_epoch[n])
-                writer.add_scalar("Training accuracy",metric,self.global_epoch[n])
+                # writer.add_scalar("Training accuracy",metric,self.global_epoch[n])
                 writer.close()
 
         print("--------------------------------------------------------------------------")
@@ -212,49 +213,49 @@ class Brain:
                 
                 # print(batch["state"].size(),batch["target"].size())
                 # print(torch.min(batch["state"]),torch.max(batch["state"]))
-                input,target = batch["state"].type(torch.float32).to(self.device),batch["target"].to(self.device)
+                input,target = batch["state"].type(torch.float32).to(self.device),batch["target"].type(torch.float32).to(self.device)
 
                 y1 = self.featNet(input)
                 y = network(y1)
                 loss = self.loss_fn(y,target)
 
-                for i in range(self.batch_size):
-                    if torch.eq(torch.argmax(y[i]),target[i]):
-                        good_move +=1
+                # for i in range(self.batch_size):
+                #     if torch.eq(torch.argmax(y[i]),target[i]):
+                #         good_move +=1
 
                 running_loss +=loss.item()
                 epoch_iterator.set_description(
                     "Validating loss=%2.5f)" % (loss)
                 )
 
-            # running_loss /= step+1
-            metric = good_move/((step+1)*self.batch_size)
+            running_loss /= step+1
+            # metric = good_move/((step+1)*self.batch_size)
 
-            self.validation_metrics[n].append(metric)
+            # self.validation_metrics[n].append(metric)
 
             if self.verbose:
                 print()
-                print("Porcentage of good moves :",metric*100,"%")
+                print("Validation loss :",running_loss,"%")
 
-            if metric > self.best_metrics[n]:
-                self.best_metrics[n] = metric
+            if running_loss < self.best_metrics[n]:
+                self.best_metrics[n] = running_loss
                 self.best_epoch[n] = self.global_epoch[n]
                 save_path = os.path.join(self.model_dirs[n],self.model_name+"_Net_"+str(n)+".pth")
                 torch.save(
                     network.state_dict(), save_path
                 )
                 # data_model["best"] = save_path
-                print("Model Was Saved ! Current Best Avg. metric: {} Current Avg. metric: {}".format(self.best_metrics[n], metric))
+                print("Model Was Saved ! Current Best Avg. loss: {} Current Avg. loss: {}".format(self.best_metrics[n], running_loss))
             else:
-                print("Model Was Not Saved ! Current Best Avg. metric: {} Current Avg. metric: {}".format(self.best_metrics[n], metric))
+                print("Model Was Not Saved ! Current Best Avg. loss: {} Current Avg. loss: {}".format(self.best_metrics[n], running_loss))
         print("--------------------------------------------------------------------------")
         if self.generate_tensorboard:
             writer = self.writers[n]
             # writer.add_graph(network,input)
-            writer.add_scalar("Validation accuracy",metric,self.global_epoch[n])
+            writer.add_scalar("Validation loss",running_loss,self.global_epoch[n])
             writer.close()
 
-        return metric
+        return running_loss
 
     def LoadModels(self,model_lst):
         for n,net in enumerate(self.networks):
@@ -266,7 +267,7 @@ class Brain:
 # #####################################
 
 
-def Gen121DensNet(i_channels=1,o_channels=1000):
+def Gen121DensNet(i_channels=1,o_channels=100000):
     DCCN = DenseNet(
         spatial_dims=3,
         in_channels=i_channels,
@@ -282,14 +283,19 @@ class ADL(nn.Module): # AgentDensLayers
         dropout_rate: float = 0.0,
     ) -> None:
         super(ADL, self).__init__()
-        self.fc0 = nn.Linear(in_channels,out_channels)
+        self.fc0 = nn.Linear(in_channels,1000)
+        self.fc1 = nn.Linear(1000,out_channels)
+
         nn.init.xavier_uniform_(self.fc0.weight)
+        nn.init.xavier_uniform_(self.fc1.weight)
+
 
 
     def forward(self,x):
         # print(x.size())
         # x = self.norm(x)
-        out = F.relu(self.fc0(x))
+        x = F.relu(self.fc0(x))
+        out = self.fc1(x)
 
         return out
 

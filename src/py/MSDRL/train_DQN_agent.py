@@ -53,7 +53,7 @@ def main(args):
     environement_lst, agent_lst = GetTrainingEnvironementsAgents(environments_param,agents_param)
     # agent_lst = [agent_lst[0]]
 
-    trainsitionLayerSize = 1000
+    trainsitionLayerSize = 100000
 
     featNet = Gen121DensNet(
         i_channels=1,
@@ -71,7 +71,7 @@ def main(args):
             model_name = agent.target,
             device = DEVICE,
             in_channels = trainsitionLayerSize,
-            out_channels = len(movements["id"]),
+            out_channels = 3,
             feature_extract_net=featNet,
             pretrained_featNet=False,
             learning_rate = args.learning_rate,

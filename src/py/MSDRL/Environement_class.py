@@ -293,6 +293,10 @@ class Environement :
         best_action = np.argmax(self.GetRewardLst(dim,position,target,mvt_matrix))
         return best_action
 
+    def GetMoveToLandmark(self,dim,position,target):
+        move = self.GetLandmarkPos(dim,target) - position
+        return move
+
     def GetRandomPos(self,dim,target,radius):
         min_coord = [0,0,0]
         max_coord = self.GetSize(dim)
@@ -319,9 +323,9 @@ class Environement :
             porcentage = 0.2 #porcentage of data around landmark
             centered_pos_nbr = int(porcentage*pos_nbr)
             rand_coord_lst = self.GetRandomPosesInAllScan(dim,pos_nbr-centered_pos_nbr)
-            rand_coord_lst += self.GetRandomPosesArounfLabel(dim,target,radius,centered_pos_nbr)
+            rand_coord_lst += self.GetRandomPosesAroundfLabel(dim,target,radius,centered_pos_nbr)
         else:
-            rand_coord_lst = self.GetRandomPosesArounfLabel(dim,target,radius,pos_nbr)
+            rand_coord_lst = self.GetRandomPosesAroundfLabel(dim,target,radius,pos_nbr)
 
         return rand_coord_lst
 
@@ -331,7 +335,7 @@ class Environement :
         rand_coord_lst = list(map(get_rand_coord,range(pos_nbr)))
         return rand_coord_lst
     
-    def GetRandomPosesArounfLabel(self,dim,target,radius,pos_nbr):
+    def GetRandomPosesAroundfLabel(self,dim,target,radius,pos_nbr):
         min_coord = [0,0,0]
         max_coord = self.GetSize(dim)
         landmark_pos = self.GetLandmarkPos(dim,target)
@@ -349,25 +353,26 @@ class Environement :
         #     rand_coord[axe] = min(val,max_coord[axe])
 
 
-    def GetRandomSample(self,dim,target,radius,crop_size,mvt_matrix):
+    def GetRandomSample(self,dim,target,radius,crop_size):
         rand_coord = self.GetRandomPos(dim,target,radius)
-        sample = self.GetSample(dim,target,rand_coord,crop_size,mvt_matrix)
+        sample = self.GetSample(dim,target,rand_coord,crop_size)
         return sample
 
-    def GetSample(self,dim,target,coord,crop_size,mvt_matrix):
+    def GetSample(self,dim,target,coord,crop_size):
         sample = {}
         sample["state"] = self.GetZone(dim,coord,crop_size)
-        sample["target"] = self.GetBestMove(dim,coord,target,mvt_matrix)
+        sample["target"] = self.GetMoveToLandmark(dim,coord,target)
+
         # sample["size"] = self.GetZone(dim,rand_coord,crop_size).size()
         # sample["coord"] = coord
         # sample["target"] = torch.from_numpy(GetTargetOutputFromAction(best_action))
         return sample
 
-    def GetSampleFromPoses(self,dim,target,pos_lst,crop_size,mvt_matrix):
+    def GetSampleFromPoses(self,dim,target,pos_lst,crop_size):
 
         get_sample = lambda coord : {
             "state":self.GetZone(dim,coord,crop_size),
-            "target": np.argmax(self.GetRewardLst(dim,coord,target,mvt_matrix))
+            "target":self.GetMoveToLandmark(dim,coord,target)
             }
         sample_lst = list(map(get_sample,pos_lst))
 

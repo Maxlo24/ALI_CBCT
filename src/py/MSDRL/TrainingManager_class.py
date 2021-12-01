@@ -75,7 +75,7 @@ class TrainingMaster :
         self.pos_dataset = data_dic
 
         # self.data_transform = Compose([ScaleIntensityd(keys=["state"],minv = 0.0, maxv = 1.0,factor = None),RandShiftIntensityd(keys=["state"],offsets=0.10,prob=0.50,)])
-        self.data_transform = RandShiftIntensityd(keys=["state"],offsets=0.10,prob=0.50)
+        self.data_transform = RandShiftIntensityd(keys=["state"],offsets=0.01,prob=0.50)
 
         self.num_worker = num_worker
         self.batch_size = batch_size
@@ -163,14 +163,14 @@ class TrainingMaster :
         print("Generating "+key+" crops for agent " + agent.target + " at scale "+ str(dim),end="\r",flush=True)
         target = agent.target
         FOV = agent.FOV
-        mov_mat = agent.movement_matrix
+        # mov_mat = agent.movement_matrix
         # get_sample = lambda pos: pos["env"].GetSample(dim,target,pos["coord"],FOV,mov_mat)
 
         # dataset = list(map(get_sample,self.pos_dataset[agent.target][key][dim]))        
         # print("Loading "+key+" crops for agent " + agent.target + " at scale "+ str(dim)+" : done in %2.1f seconds" % (time.time() - start_time))
         dataset = self.crop_dataset[key]
         for env,pos_lst in self.pos_dataset[agent.target][key][dim].items():
-            dataset += env.GetSampleFromPoses(dim,target,pos_lst,FOV,mov_mat)
+            dataset += env.GetSampleFromPoses(dim,target,pos_lst,FOV)
         print("Generating "+key+" crops for agent " + agent.target + " at scale "+ str(dim)+" : done in %2.1f seconds" % (time.time() - start_time))
         train_ds = CacheDataset(
             data=dataset,

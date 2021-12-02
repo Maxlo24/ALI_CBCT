@@ -271,6 +271,8 @@ def Gen121DensNet(i_channels=1,o_channels=1000):
         spatial_dims=3,
         in_channels=i_channels,
         out_channels=o_channels,
+        growth_rate = 24,
+        block_config = (3, 3),
     )
     return DCCN
 

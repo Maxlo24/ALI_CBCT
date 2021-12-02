@@ -39,6 +39,7 @@ class Environement :
         self,
         padding,
         device,
+        save_original = False,
         verbose = False
     ) -> None:
         """
@@ -50,6 +51,7 @@ class Environement :
         self.padding = padding.astype(np.int16)
         self.device = device
         self.verbose = verbose
+        self.save_original = save_original
         self.transform = Compose([AddChannel(),BorderPad(spatial_border=self.padding.tolist())])
         self.pad1_transform = Compose([AddChannel(),BorderPad(spatial_border=[1,1,1])])
 
@@ -73,7 +75,8 @@ class Environement :
             origins.append(np.array([origin[2],origin[1],origin[0]]))
             img_ar = sitk.GetArrayFromImage(img)
             sizes.append(np.array(np.shape(img_ar)))
-            original_data.append(torch.from_numpy(self.pad1_transform(img_ar)).type(torch.int16))
+            if self.save_original:
+                original_data.append(torch.from_numpy(self.pad1_transform(img_ar)).type(torch.int16))
             data.append(torch.from_numpy(self.transform(img_ar)).type(torch.int16))
 
         self.dim = len(data)

@@ -37,7 +37,7 @@ def main(args):
         "padding" : np.array(args.agent_FOV)/2+1,
         "landmarks" : args.landmarks,
         "verbose" : False,
-        "rotated" : True
+        "rotated" : False
     }
 
     agents_param = {
@@ -53,7 +53,7 @@ def main(args):
     environement_lst, agent_lst = GetTrainingEnvironementsAgents(environments_param,agents_param)
     # agent_lst = [agent_lst[0]]
 
-    trainsitionLayerSize = 1000
+    trainsitionLayerSize = 10000
 
     featNet = Gen121DensNet(
         i_channels=1,
@@ -134,10 +134,10 @@ if __name__ ==  '__main__':
 
     #Environment
     input_group.add_argument('-lm','--landmarks',nargs="+",type=str,help="Prepare the data for uper and/or lower landmark training (ex: U L CB)", default=["CB"])
-    input_group.add_argument('-sp', '--spacing', nargs="+", type=float, help='Spacing of the different scales', default=[2,1])
+    input_group.add_argument('-sp', '--spacing', nargs="+", type=float, help='Spacing of the different scales', default=[1,0.3])
     
     #Agent
-    input_group.add_argument('-fov', '--agent_FOV', nargs="+", type=float, help='Wanted crop size', default=[64,64,64])
+    input_group.add_argument('-fov', '--agent_FOV', nargs="+", type=float, help='Wanted crop size', default=[65,65,65])
     input_group.add_argument('-mvt','--movement', type=str, help='Number of posssible agent movement',default='6') # parser.parse_args().dir_data+
     input_group.add_argument('-sr', '--spawn_radius', type=int, help='spawning radius around landmark', default=30)
 
@@ -149,8 +149,8 @@ if __name__ ==  '__main__':
     input_group.add_argument('-dur', '--data_update_ratio', type=float, help='Ratio of data to update', default=0.5)
     #Training param
     input_group.add_argument('-mi', '--max_epoch', type=int, help='Number of training epocs', default=1000)
-    input_group.add_argument('-vf', '--val_freq', type=int, help='Validation frequency', default=5)
-    input_group.add_argument('-tp', '--test_percentage', type=int, help='Percentage of data to keep for validation', default=10)
+    input_group.add_argument('-vf', '--val_freq', type=int, help='Validation frequency', default=4)
+    input_group.add_argument('-tp', '--test_percentage', type=int, help='Percentage of data to keep for validation', default=15)
     input_group.add_argument('-lr', '--learning_rate', type=float, help='Learning rate', default=1e-4)
     input_group.add_argument('-nw', '--nbr_worker', type=int, help='Number of worker', default=0)
 

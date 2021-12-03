@@ -23,7 +23,7 @@ class Brain:
         device,
         in_channels,
         out_channels,
-        feature_extract_net,
+        feature_extract_net = None,
         pretrained_featNet = False,
         model_dir = "",
         model_name = "",
@@ -64,7 +64,10 @@ class Brain:
             )
             net.to(self.device)
             networks.append(net)
-            optimizers.append(optim.Adam(list(self.featNet.parameters()) + list(net.parameters()), lr=learning_rate))
+            if self.featNet != None:
+                optimizers.append(optim.Adam(list(self.featNet.parameters()) + list(net.parameters()), lr=learning_rate))
+            else:
+                optimizers.append(optim.Adam(net.parameters(), lr=learning_rate))
             epoch_losses.append([0])
             validation_metrics.append([])
             best_metrics.append(0)
@@ -107,7 +110,11 @@ class Brain:
         )
         net.to(self.device)
         self.networks[n] = net
-        self.optimizers[n] = optim.Adam(list(self.featNet.parameters()) + list(net.parameters()), lr=self.learning_rate)
+        if self.featNet != None:
+            self.optimizers[n] = optim.Adam(list(self.featNet.parameters()) + list(net.parameters()), lr=self.learning_rate)
+        else:
+            self.optimizers[n] = optim.Adam(net.parameters(), lr=self.learning_rate)
+
         self.epoch_losses[n] = [0]
         self.validation_metrics[n] = []
         self.best_metrics[n] = 0
@@ -121,8 +128,9 @@ class Brain:
         self.featNet.eval()
         with torch.no_grad():
             input = torch.unsqueeze(state,0).type(torch.float32).to(self.device)
-            y = self.featNet(input)
-            x = network(y)
+            if self.featNet != None:
+                input = self.featNet(input)
+            x = network(input)
         return torch.argmax(x)
 
     def Train(self,data,n):
@@ -134,10 +142,11 @@ class Brain:
             print("training epoch:",self.global_epoch[n],"for network :",n)
 
         network.train()
-        if self.featNetPretrained:
-            self.featNet.eval()
-        else:
-            self.featNet.train()
+        if self.featNet != None:
+            if self.featNetPretrained:
+                self.featNet.eval()
+            else:
+                self.featNet.train()
 
         epoch_loss = 0
         epoch_good_move = 0
@@ -156,8 +165,9 @@ class Brain:
             # self.writer.add_image('Crop of network '+str(n)+' at epoch ' + str(self.global_epoch[n]),img_grid)
             
             optimizer.zero_grad()
-            y1 = self.featNet(input)
-            y = network(y1)
+            if self.featNet != None:
+                input = self.featNet(input)
+            y = network(input)
             loss = self.loss_fn(y,target)
             loss.backward()
             optimizer.step()
@@ -201,7 +211,8 @@ class Brain:
         
         network = self.networks[n]
         network.eval()
-        self.featNet.eval()
+        if self.featNet != None:
+            self.featNet.eval()
         with torch.no_grad():
             running_loss = 0
             good_move = 0
@@ -213,9 +224,9 @@ class Brain:
                 # print(batch["state"].size(),batch["target"].size())
                 # print(torch.min(batch["state"]),torch.max(batch["state"]))
                 input,target = batch["state"].type(torch.float32).to(self.device),batch["target"].to(self.device)
-
-                y1 = self.featNet(input)
-                y = network(y1)
+                if self.featNet != None:
+                    input = self.featNet(input)
+                y = network(input)
                 loss = self.loss_fn(y,target)
 
                 for i in range(self.batch_size):
@@ -369,6 +380,68 @@ class DN(nn.Module):
         output = x #F.softmax(self.fc3(x), dim=1)
         return output
 
+
+class DQN(nn.Module):
+    def __init__(
+        self,
+        in_channels: int = 1,
+        out_channels: int = 6,
+        dropout_rate: float = 0.0,
+    ) -> None:
+        super(DQN, self).__init__()
+        if not (0 <= dropout_rate <= 1):
+            raise ValueError("dropout_rate should be between 0 and 1.")
+        # self.norm = nn.LayerNorm(in_size)
+        self.conv1 = nn.Conv3d(
+            in_channels, 
+            out_channels = 32, 
+            kernel_size = 4, 
+        )
+        self.pool1 = nn.AvgPool3d(2)
+        self.conv2 = nn.Conv3d(
+            in_channels = 32, 
+            out_channels = 64, 
+            kernel_size = 3,
+        )
+        self.pool2 = nn.AvgPool3d(2)
+        self.conv3 = nn.Conv3d(
+            in_channels = 64, 
+            out_channels = 128, 
+            kernel_size = 2,
+        )
+        self.pool3 = nn.AvgPool3d(2)
+
+        self.fc0 = nn.Linear(128*6*6*6,512)
+        self.fc1 = nn.Linear(512, 256)
+        self.fc2 = nn.Linear(256, 128)
+        self.fc3 = nn.Linear(128, out_channels)
+
+
+        nn.init.xavier_uniform_(self.conv1.weight)
+        nn.init.xavier_uniform_(self.conv2.weight)
+        nn.init.xavier_uniform_(self.conv3.weight)
+        nn.init.xavier_uniform_(self.fc0.weight)
+        nn.init.xavier_uniform_(self.fc1.weight)
+        nn.init.xavier_uniform_(self.fc2.weight)
+        nn.init.xavier_uniform_(self.fc3.weight)
+
+
+    def forward(self,x):
+        # print(x.size())
+        # x = self.norm(x)
+        x=self.pool1(F.relu(self.conv1(x)))
+        # print(x.size())
+        x=self.pool2(F.relu(self.conv2(x)))
+        # print(x.size())
+        x=self.pool3(F.relu(self.conv3(x)))
+        # print(x.size())
+        x = torch.flatten(x, 1)
+        x = F.relu(self.fc0(x))
+        x = F.relu(self.fc1(x))
+        x = F.relu(self.fc2(x))
+        x = F.relu(self.fc3(x))
+        output = x #F.softmax(self.fc3(x), dim=1)
+        return output
 
 
 class MaxDQN(nn.Module):

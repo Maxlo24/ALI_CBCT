@@ -213,17 +213,18 @@ class TrainingMaster :
 
             val_ctr += data_update_freq
             if val_done:
-                mean_accuracy = sum(accuracy) / len(accuracy)
-                if mean_accuracy > best_accuracy:
-                    save_path = os.path.join(self.model_dir,"FeatureExtract_DCCNet.pth")
-                    torch.save(
-                        self.featNet.state_dict(), save_path
-                    )
-                    # data_model["best"] = save_path
-                    print("Feature Extracting modelodel Was Saved ! Previous Best Avg. accuracy: {} Current Avg. accuracy: {}".format(best_accuracy, mean_accuracy))
-                    best_accuracy = mean_accuracy
-                else:
-                    print("Feature Extracting modelodel Not Saved ! Best Avg. accuracy: {} Current Avg. accuracy: {}".format(best_accuracy, mean_accuracy))
+                if self.featNet != None:
+                    mean_accuracy = sum(accuracy) / len(accuracy)
+                    if mean_accuracy > best_accuracy:
+                        save_path = os.path.join(self.model_dir,"FeatureExtract_DCCNet.pth")
+                        torch.save(
+                            self.featNet.state_dict(), save_path
+                        )
+                        # data_model["best"] = save_path
+                        print("Feature Extracting modelodel Was Saved ! Previous Best Avg. accuracy: {} Current Avg. accuracy: {}".format(best_accuracy, mean_accuracy))
+                        best_accuracy = mean_accuracy
+                    else:
+                        print("Feature Extracting modelodel Not Saved ! Best Avg. accuracy: {} Current Avg. accuracy: {}".format(best_accuracy, mean_accuracy))
 
                 print("")
                 self.RotateEnvironments("train")

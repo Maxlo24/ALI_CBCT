@@ -11,7 +11,7 @@ import torch
 import datetime
 
 from GlobalVar import*
-from Models_class import (Brain,ADL,CNN,DN,MaxDQN,Gen121DensNet)
+from Models_class import (Brain,ADL,CNN,DN,DQN,MaxDQN,Gen121DensNet)
 from Agents_class import (DQNAgent)
 from Environement_class import (Environement)
 from TrainingManager_class import (TrainingMaster)
@@ -55,7 +55,8 @@ def main(args):
     # agent_lst = [agent_lst[0]]
 
     # trainsitionLayerSize = 2048
-    trainsitionLayerSize = 128*6*6*6
+    # trainsitionLayerSize = 128*6*6*6
+    trainsitionLayerSize = 1
 
     # featNet = Gen121DensNet(
     #     i_channels=1,
@@ -68,16 +69,18 @@ def main(args):
     #     n_classes=trainsitionLayerSize
     # ).to(DEVICE)
 
-    featNet = CNN(
-        in_channels=1
-    ).to(DEVICE)
+    # featNet = CNN(
+    #     in_channels=1
+    # ).to(DEVICE)
+
+    featNet = None
 
     for agent in agent_lst:
         dir_path = os.path.join(args.dir_model,agent.target)
         if not os.path.exists(dir_path):
             os.makedirs(dir_path)
         agent.SetBrain(Brain(
-            network_type = ADL,
+            network_type = DQN,
             network_nbr = dim,
             model_dir = dir_path,
             model_name = agent.target,

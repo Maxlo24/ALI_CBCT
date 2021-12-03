@@ -17,6 +17,7 @@ from Environement_class import (Environement)
 from TrainingManager_class import (TrainingMaster)
 
 import argparse
+from resnet2p1d import *
 
 def main(args):
 
@@ -53,11 +54,17 @@ def main(args):
     environement_lst, agent_lst = GetTrainingEnvironementsAgents(environments_param,agents_param)
     # agent_lst = [agent_lst[0]]
 
-    trainsitionLayerSize = 10000
+    trainsitionLayerSize = 2048
 
-    featNet = Gen121DensNet(
-        i_channels=1,
-        o_channels=trainsitionLayerSize
+    # featNet = Gen121DensNet(
+    #     i_channels=1,
+    #     o_channels=trainsitionLayerSize
+    # ).to(DEVICE)
+
+    featNet = generate_model(
+        model_depth = 18,
+        n_input_channels=1,
+        n_classes=trainsitionLayerSize
     ).to(DEVICE)
 
     for agent in agent_lst:
@@ -137,7 +144,7 @@ if __name__ ==  '__main__':
     input_group.add_argument('-sp', '--spacing', nargs="+", type=float, help='Spacing of the different scales', default=[1,0.3])
     
     #Agent
-    input_group.add_argument('-fov', '--agent_FOV', nargs="+", type=float, help='Wanted crop size', default=[65,65,65])
+    input_group.add_argument('-fov', '--agent_FOV', nargs="+", type=float, help='Wanted crop size', default=[64,64,64])
     input_group.add_argument('-mvt','--movement', type=str, help='Number of posssible agent movement',default='6') # parser.parse_args().dir_data+
     input_group.add_argument('-sr', '--spawn_radius', type=int, help='spawning radius around landmark', default=30)
 

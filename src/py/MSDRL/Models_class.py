@@ -276,33 +276,13 @@ def Gen121DensNet(i_channels=1,o_channels=1000):
     )
     return DCCN
 
-class ADL(nn.Module): # AgentDensLayers
-    def __init__(
-        self,
-        in_channels: int = 1000,
-        out_channels: int = 6,
-        dropout_rate: float = 0.0,
-    ) -> None:
-        super(ADL, self).__init__()
-        self.fc0 = nn.Linear(in_channels,out_channels)
-        nn.init.xavier_uniform_(self.fc0.weight)
-
-
-    def forward(self,x):
-        # print(x.size())
-        # x = self.norm(x)
-        out = F.relu(self.fc0(x))
-
-        return out
-
-class DQN(nn.Module):
+class CNN(nn.Module):
     def __init__(
         self,
         in_channels: int = 1,
-        out_channels: int = 6,
         dropout_rate: float = 0.0,
     ) -> None:
-        super(DQN, self).__init__()
+        super(CNN, self).__init__()
         if not (0 <= dropout_rate <= 1):
             raise ValueError("dropout_rate should be between 0 and 1.")
         self.conv1 = nn.Conv3d(
@@ -324,20 +304,10 @@ class DQN(nn.Module):
         )
         self.pool3 = nn.AvgPool3d(2)
 
-        self.fc0 = nn.Linear(in_channels,512)
-        self.fc1 = nn.Linear(512, 256)
-        self.fc2 = nn.Linear(256, 128)
-        self.fc3 = nn.Linear(128, out_channels)
-
 
         nn.init.xavier_uniform_(self.conv1.weight)
         nn.init.xavier_uniform_(self.conv2.weight)
         nn.init.xavier_uniform_(self.conv3.weight)
-        nn.init.xavier_uniform_(self.fc0.weight)
-        nn.init.xavier_uniform_(self.fc1.weight)
-        nn.init.xavier_uniform_(self.fc2.weight)
-        nn.init.xavier_uniform_(self.fc3.weight)
-
 
     def forward(self,x):
         # print(x.size())
@@ -349,6 +319,49 @@ class DQN(nn.Module):
         x=self.pool3(F.relu(self.conv3(x)))
         # print(x.size())
         x = torch.flatten(x, 1)
+
+        return x
+
+class ADL(nn.Module): # AgentDensLayers
+    def __init__(
+        self,
+        in_channels: int = 1000,
+        out_channels: int = 6,
+        dropout_rate: float = 0.0,
+    ) -> None:
+        super(ADL, self).__init__()
+        self.fc0 = nn.Linear(in_channels,out_channels)
+        nn.init.xavier_uniform_(self.fc0.weight)
+
+
+    def forward(self,x):
+        # print(x.size())
+        # x = self.norm(x)
+        out = F.relu(self.fc0(x))
+
+        return out
+
+class DN(nn.Module):
+    def __init__(
+        self,
+        in_channels,
+        out_channels: int = 6,
+        dropout_rate: float = 0.0,
+    ) -> None:
+        super(DN, self).__init__()
+
+        self.fc0 = nn.Linear(in_channels,512)
+        self.fc1 = nn.Linear(512, 256)
+        self.fc2 = nn.Linear(256, 128)
+        self.fc3 = nn.Linear(128, out_channels)
+
+        nn.init.xavier_uniform_(self.fc0.weight)
+        nn.init.xavier_uniform_(self.fc1.weight)
+        nn.init.xavier_uniform_(self.fc2.weight)
+        nn.init.xavier_uniform_(self.fc3.weight)
+
+
+    def forward(self,x):
         x = F.relu(self.fc0(x))
         x = F.relu(self.fc1(x))
         x = F.relu(self.fc2(x))

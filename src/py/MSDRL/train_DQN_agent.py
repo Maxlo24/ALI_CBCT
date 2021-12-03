@@ -11,7 +11,7 @@ import torch
 import datetime
 
 from GlobalVar import*
-from Models_class import (Brain,ADL,DQN,MaxDQN,Gen121DensNet)
+from Models_class import (Brain,ADL,CNN,DN,MaxDQN,Gen121DensNet)
 from Agents_class import (DQNAgent)
 from Environement_class import (Environement)
 from TrainingManager_class import (TrainingMaster)
@@ -54,17 +54,22 @@ def main(args):
     environement_lst, agent_lst = GetTrainingEnvironementsAgents(environments_param,agents_param)
     # agent_lst = [agent_lst[0]]
 
-    trainsitionLayerSize = 2048
+    # trainsitionLayerSize = 2048
+    trainsitionLayerSize = 128*6*6*6
 
     # featNet = Gen121DensNet(
     #     i_channels=1,
     #     o_channels=trainsitionLayerSize
     # ).to(DEVICE)
 
-    featNet = generate_model(
-        model_depth = 18,
-        n_input_channels=1,
-        n_classes=trainsitionLayerSize
+    # featNet = generate_model(
+    #     model_depth = 18,
+    #     n_input_channels=1,
+    #     n_classes=trainsitionLayerSize
+    # ).to(DEVICE)
+
+    featNet = CNN(
+        in_channels=1
     ).to(DEVICE)
 
     for agent in agent_lst:

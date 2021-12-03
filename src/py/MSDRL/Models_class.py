@@ -14,6 +14,8 @@ from tqdm.std import tqdm
 from monai.networks.nets.densenet import (
     DenseNet
 )
+from resnet2p1d import *
+
 
 class Brain:
     def __init__(
@@ -352,12 +354,38 @@ class ADL(nn.Module): # AgentDensLayers
 
         return out
 
+
+class RNet(nn.Module):
+    def __init__(
+        self,
+        in_channels: int = 1024,
+        out_channels: int = 6,
+    ) -> None:
+        super(RNet, self).__init__()
+        self.featNet = generate_model(
+            model_depth = 10,
+            n_input_channels=1,
+            n_classes=in_channels
+        )
+
+        self.dens = DN(
+            in_channels = in_channels,
+            out_channels = out_channels
+        )
+
+    def forward(self,x):
+        x = self.featNet(x)
+        x = self.dens(x)
+        return x
+
+
+
+
 class DN(nn.Module):
     def __init__(
         self,
         in_channels,
         out_channels: int = 6,
-        dropout_rate: float = 0.0,
     ) -> None:
         super(DN, self).__init__()
 
@@ -379,6 +407,7 @@ class DN(nn.Module):
         x = F.relu(self.fc3(x))
         output = x #F.softmax(self.fc3(x), dim=1)
         return output
+
 
 
 class DQN(nn.Module):

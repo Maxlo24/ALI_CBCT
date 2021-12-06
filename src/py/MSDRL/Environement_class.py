@@ -1,4 +1,5 @@
 from GlobalVar import*
+from skimage import exposure
 
 import csv
 import SimpleITK as sitk
@@ -69,11 +70,16 @@ class Environement :
         
         for path in images_path:
             img = sitk.ReadImage(path)
+
             # sizes.append(np.array(img.GetSize()))
             spacings.append(np.array(img.GetSpacing()))
             origin = img.GetOrigin()
             origins.append(np.array([origin[2],origin[1],origin[0]]))
             img_ar = sitk.GetArrayFromImage(img)
+            img_ar = np.where(img_ar < 2500, img_ar,2500)
+            # print(np.max(img_ar))
+            # p1, p2 = np.percentile(img, (0, 98))
+            # img_ar = exposure.rescale_intensity(img_ar, in_range=(p1, p2))
             sizes.append(np.array(np.shape(img_ar)))
             if self.save_original:
                 original_data.append(torch.from_numpy(self.pad1_transform(img_ar)).type(torch.int16))
@@ -283,7 +289,9 @@ class Environement :
     def GetZone(self,dim,center,crop_size):
         cropTransform = SpatialCrop(center.tolist() + self.padding,crop_size)
         rescale = ScaleIntensity(minv = -1.0, maxv = 1.0, factor = None)
-        crop = rescale(cropTransform(self.data[dim])).type(torch.float32)
+        crop = cropTransform(self.data[dim])
+        print(torch.max(crop))
+        crop = rescale(crop).type(torch.float32)
         return crop
 
     def GetRewardLst(self,dim,position,target,mvt_matrix):

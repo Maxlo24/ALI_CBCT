@@ -8,6 +8,8 @@ import torch
 import json
 
 from GlobalVar import*
+from skimage import exposure
+
 
 import seaborn as sns
 import matplotlib.pyplot as plt
@@ -218,6 +220,12 @@ def SetSpacing(filepath,output_spacing=[0.5, 0.5, 0.5],outpath=-1):
 
     print("Resample :", filepath, ", with spacing :", output_spacing)
     img = itk.imread(filepath)
+    # arr_img = itk.GetArrayFromImage(img)
+    # print(np.min(arr_img),np.max(arr_img))
+    # arr_img = np.where(arr_img < 2500, arr_img,2500)
+    # print(np.min(arr_img),np.max(arr_img))
+
+    # img_rescale = itk.GetImageFromArray(arr_img)
 
     spacing = np.array(img.GetSpacing())
     output_spacing = np.array(output_spacing)
@@ -582,22 +590,34 @@ def SaveFiducialFromArray(data,scan_image,outpath,label_list):
     f.close
     
 
-def CheckCrops(Master,agent):
+def CheckCrops(Master,agent,dim):
     Master.GeneratePosDataset("train",Master.max_train_memory_size)
     Master.GeneratePosDataset("val",Master.max_val_memory_size)
+    _,tds = Master.GenerateDataLoader("train",agent,dim)
+    _,vds = Master.GenerateDataLoader("val",agent,dim)
+
+    # print(tds)
 
     if not os.path.exists("crop"):
         os.makedirs("crop")
 
-    for key,value in Master.pos_dataset.items():
-        for k,v in value.items():
-            # print(v)
-            for n,dq in enumerate(v):
-                for dim,obj in enumerate(dq):
-                    # print(n,obj)
-                    arr = obj["env"].GetSample(n,agent.target,obj["coord"],agent.FOV,agent.movement_matrix)
-                    # print(arr)
-                    output = sitk.GetImageFromArray(arr["state"][0][:].type(torch.float32))
-                    writer = sitk.ImageFileWriter()
-                    writer.SetFileName(f"crop/test_{key}_{k}_{dim}_{n}.nii.gz")
-                    writer.Execute(output)
+    for n,dic in enumerate(tds):
+        arr = dic["state"]
+        print(arr[0].shape)
+        output = sitk.GetImageFromArray(arr[0].type(torch.float32))
+        writer = sitk.ImageFileWriter()
+        writer.SetFileName(f"crop/test_{agent.target}_{dim}_{n}.nii.gz")
+        writer.Execute(output)
+
+    # for key,value in Master.pos_dataset.items():
+    #     for k,v in value.items():
+    #         # print(v)
+    #         for n,dq in enumerate(v):
+    #             for dim,obj in enumerate(dq):
+    #                 # print(n,obj)
+    #                 arr = obj["env"].GetSample(n,agent.target,obj["coord"],agent.FOV,agent.movement_matrix)
+    #                 # print(arr)
+    #                 output = sitk.GetImageFromArray(arr["state"][0][:].type(torch.float32))
+    #                 writer = sitk.ImageFileWriter()
+    #                 writer.SetFileName(f"crop/test_{key}_{k}_{dim}_{n}.nii.gz")
+    #                 writer.Execute(output)

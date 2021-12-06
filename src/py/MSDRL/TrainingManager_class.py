@@ -179,7 +179,7 @@ class TrainingMaster :
             # num_workers=self.num_worker,
         )
         train_loader = DataLoader(train_ds, batch_size=self.batch_size, num_workers=self.num_worker)
-        return train_loader
+        return train_loader,dataset
         
     # TOOLS
     def Train(self,max_epoch,val_freq,data_update_freq,data_update_ratio):
@@ -200,13 +200,13 @@ class TrainingMaster :
             start_time = time.time()
             for agent in self.agents:
                 for dim in range(self.env_dim):
-                    data_loader = self.GenerateDataLoader("train",agent,dim)
+                    data_loader,_ = self.GenerateDataLoader("train",agent,dim)
                     val = val_ctr
                     for i in range(data_update_freq):
                         val += 1
                         agent.Train(data_loader,dim)
                         if val >= val_freq:
-                            val_data_loader = self.GenerateDataLoader("val",agent,dim)
+                            val_data_loader,_ = self.GenerateDataLoader("val",agent,dim)
                             accuracy.append(agent.Validate(val_data_loader,dim))
                             val = 0
                             val_done = True

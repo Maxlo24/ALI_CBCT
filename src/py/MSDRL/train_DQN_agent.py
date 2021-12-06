@@ -115,8 +115,8 @@ def main(args):
         data_update_ratio= args.data_update_ratio
         )
 
-    # agent = agent_lst[0]
-    # CheckCrops(Master,agent)
+    # agent = agent_lst[1]
+    # CheckCrops(Master,agent,1)
     # e = environement_lst[1]
     # e.SetRandomRotation()
     # e.SetRandomRotation()
@@ -148,7 +148,7 @@ if __name__ ==  '__main__':
     input_group.add_argument('--dir_model', type=str, help='Output directory of the training',default= parser.parse_args().dir_data+'/ALI_CNN_models_'+datetime.datetime.now().strftime("%Y_%d_%m"))
 
     #Environment
-    input_group.add_argument('-lm','--landmarks',nargs="+",type=str,help="Prepare the data for uper and/or lower landmark training (ex: U L CB)", default=["CB"])
+    input_group.add_argument('-lm','--landmarks',nargs="+",type=str,help="Prepare the data for uper and/or lower landmark training (ex: U L CB)", default=["U"])
     input_group.add_argument('-sp', '--spacing', nargs="+", type=float, help='Spacing of the different scales', default=[1,0.3])
     
     #Agent
@@ -158,8 +158,8 @@ if __name__ ==  '__main__':
 
 
     #Training data
-    input_group.add_argument('-bs', '--batch_size', type=int, help='Batch size', default=2)
-    input_group.add_argument('-ds', '--data_size', type=int, help='Size of the dataset', default=10)
+    input_group.add_argument('-bs', '--batch_size', type=int, help='Batch size', default=1)
+    input_group.add_argument('-ds', '--data_size', type=int, help='Size of the dataset', default=4)
     input_group.add_argument('-duf', '--data_update_freq', type=int, help='Data update frequency', default=1)
     input_group.add_argument('-dur', '--data_update_ratio', type=float, help='Ratio of data to update', default=0.5)
     #Training param

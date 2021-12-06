@@ -14,7 +14,7 @@ import os
 import torch
 
 from GlobalVar import*
-from Models_class import (Brain,ADL,DQN,Gen121DensNet)
+from Models_class import (Brain,RNet,ADL,DQN,Gen121DensNet)
 from Agents_class import (DQNAgent,)
 from Environement_class import (Environement)
 
@@ -57,19 +57,20 @@ def main(args):
     # environement_lst = [environement_lst[0]]
     # agent_lst = [agent_lst[0]]
 
-    trainsitionLayerSize = 1000
+    trainsitionLayerSize = 2048
 
-    featNet = Gen121DensNet(
-        i_channels=1,
-        o_channels=trainsitionLayerSize
-    ).to(DEVICE)
+    # featNet = Gen121DensNet(
+    #     i_channels=1,
+    #     o_channels=trainsitionLayerSize
+    # ).to(DEVICE)
+    featNet = None
 
-    print("Loading Feature Net" , args.feat_extract_model)
-    featNet.load_state_dict(torch.load(args.feat_extract_model,map_location=DEVICE)) 
+    # print("Loading Feature Net" , args.feat_extract_model)
+    # featNet.load_state_dict(torch.load(args.feat_extract_model,map_location=DEVICE)) 
 
     for agent in agent_lst:
         brain = Brain(
-            network_type = ADL,
+            network_type = RNet,
             network_nbr = dim,
             device = DEVICE,
             in_channels = trainsitionLayerSize,
@@ -97,7 +98,7 @@ def main(args):
     #                 e.AddPredictedLandmark(lm,e.GetLandmarkPos(1,lm))
     #                 e.SavePredictedLandmarks()
 
-    # data_result = ReslutAccuracy(args.dir_scans)
+    data_result = ReslutAccuracy(args.dir_scans)
     # PlotResults(data_result)
 
     data_discret_result = ResultDiscretAccuracy(environement_lst,args.spacing[-1])

@@ -77,6 +77,10 @@ class DQNAgent :
         self.scale_state = scale
         self.search_atempt = 0
 
+
+    def SetPosAtCenter(self):
+        self.position = self.environement.GetSize(self.scale_state)/2
+
     def SetRandomPos(self):
         if self.scale_state == 0:
             rand_coord = np.random.randint(1, self.environement.GetSize(self.scale_state), dtype=np.int16)
@@ -138,6 +142,7 @@ class DQNAgent :
         if self.verbose:
             print("Searching landmark :",self.target)
         self.GoToScale()
+        self.SetPosAtCenter()
         self.SetRandomPos()
         self.SavePos()
         found = False

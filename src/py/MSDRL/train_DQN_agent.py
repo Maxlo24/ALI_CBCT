@@ -11,7 +11,7 @@ import torch
 import datetime
 
 from GlobalVar import*
-from Models_class import (Brain,ADL,CNN,DN,RNet,DQN,MaxDQN,Gen121DensNet)
+from Models_class import (Brain,ADL,CNN,DN,DNet,RNet,DQN,MaxDQN,Gen121DensNet)
 from Agents_class import (DQNAgent)
 from Environement_class import (Environement)
 from TrainingManager_class import (TrainingMaster)
@@ -80,7 +80,7 @@ def main(args):
         if not os.path.exists(dir_path):
             os.makedirs(dir_path)
         agent.SetBrain(Brain(
-            network_type = RNet,
+            network_type = DNet,
             network_nbr = dim,
             model_dir = dir_path,
             model_name = agent.target,
@@ -145,7 +145,7 @@ if __name__ ==  '__main__':
 
 
     # input_group.add_argument('--dir_cash', type=str, help='Output directory of the training',default=parser.parse_args().dir_data+'/Cash')
-    input_group.add_argument('--dir_model', type=str, help='Output directory of the training',default= parser.parse_args().dir_data+'/ALI_CNN_models_'+datetime.datetime.now().strftime("%Y_%d_%m"))
+    input_group.add_argument('--dir_model', type=str, help='Output directory of the training',default= parser.parse_args().dir_data+'/ALI_RNet_models_'+datetime.datetime.now().strftime("%Y_%d_%m"))
 
     #Environment
     input_group.add_argument('-lm','--landmarks',nargs="+",type=str,help="Prepare the data for uper and/or lower landmark training (ex: U L CB)", default=["U"])

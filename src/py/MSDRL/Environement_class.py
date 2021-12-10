@@ -76,7 +76,7 @@ class Environement :
             origin = img.GetOrigin()
             origins.append(np.array([origin[2],origin[1],origin[0]]))
             img_ar = sitk.GetArrayFromImage(img)
-            img_ar = np.where(img_ar < 2500, img_ar,2500)
+            img_ar = np.where(img_ar < 5000, img_ar,5000)
             # print(np.max(img_ar))
             # p1, p2 = np.percentile(img, (0, 98))
             # img_ar = exposure.rescale_intensity(img_ar, in_range=(p1, p2))
@@ -290,7 +290,7 @@ class Environement :
         cropTransform = SpatialCrop(center.tolist() + self.padding,crop_size)
         rescale = ScaleIntensity(minv = -1.0, maxv = 1.0, factor = None)
         crop = cropTransform(self.data[dim])
-        print(torch.max(crop))
+        # print(tor ch.max(crop))
         crop = rescale(crop).type(torch.float32)
         return crop
 

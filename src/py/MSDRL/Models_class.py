@@ -127,7 +127,8 @@ class Brain:
     def Predict(self,dim,state):
         network = self.networks[dim]
         network.eval()
-        self.featNet.eval()
+        if self.featNet != None:
+            self.featNet.eval()
         with torch.no_grad():
             input = torch.unsqueeze(state,0).type(torch.float32).to(self.device)
             if self.featNet != None:
@@ -354,6 +355,32 @@ class ADL(nn.Module): # AgentDensLayers
 
         return out
 
+
+class DNet(nn.Module):
+    def __init__(
+        self,
+        in_channels: int = 1024,
+        out_channels: int = 6,
+    ) -> None:
+        super(DNet, self).__init__()
+
+        self.featNet = DenseNet(
+            spatial_dims=3,
+            in_channels=1,
+            out_channels=in_channels,
+            growth_rate = 24,
+            block_config = (3, 3),
+        )
+
+        self.dens = DN(
+            in_channels = in_channels,
+            out_channels = out_channels
+        )
+
+    def forward(self,x):
+        x = self.featNet(x)
+        x = self.dens(x)
+        return x
 
 class RNet(nn.Module):
     def __init__(

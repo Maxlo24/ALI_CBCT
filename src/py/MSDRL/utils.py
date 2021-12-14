@@ -476,7 +476,11 @@ def  ReslutAccuracy(fiducial_dir):
                 elif "_CB." in baseName :
                     patients[patient]["CB"]["target"]=img_fn
 
-
+    fail = 0
+    max = 0
+    mean = 0
+    nbr_pred = 0
+    error_lst = []
     f = open(os.path.join(fiducial_dir,"Result.txt"),'w')
     for patient,fiducials in patients.items():
         print("Results for patient",patient)
@@ -495,13 +499,24 @@ def  ReslutAccuracy(fiducial_dir):
                         b = np.array([float(p_data["x"]),float(p_data["y"]),float(p_data["z"])])
                         # print(a,b)
                         dist = np.linalg.norm(a-b)
+                        if dist > max: max = dist
                         if dist < 10:
+                            nbr_pred+=1
+                            mean += dist
                             error_dic["labels"].append(lm)
                             error_dic["error"].append(dist)
+                            error_lst.append(dist)
+                        else:
+                            fail +=1
                         print("  ",lm,"error = ", dist)
                         f.write("  "+ str(lm)+" error = "+str(dist)+"\n")
             f.write("\n")
         f.write("\n")
+
+    print(fail,'fail')
+    print("STD :", np.std(error_lst))
+    print('Error max :',max)
+    print('Mean error',mean/nbr_pred)
     
     f.close
     return error_dic

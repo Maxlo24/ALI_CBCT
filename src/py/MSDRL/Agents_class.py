@@ -138,6 +138,33 @@ class DQNAgent :
         self.position_mem[self.scale_state].append(self.position)
         self.position_shortmem[self.scale_state].append(self.position)
 
+    def Focus(self,start_pos):
+        explore_pos = np.array(
+            [
+                [1,0,0],
+                [-1,0,0],
+                [0,1,0],
+                [0,-1,1],
+                [0,0,1],
+                [0,0,-1]
+            ],
+            dtype=np.int16
+        )
+        radius = 3
+        final_pos = np.array([0,0,0])
+        for pos in explore_pos:
+            found = False
+            self.position_shortmem[self.scale_state].clear()
+            self.position = start_pos + radius*pos
+            while  not found:
+                action = self.PredictAction()
+                self.Move(action)
+                if self.Visited():
+                    found = True
+                self.SavePos()
+            final_pos += self.position
+        return final_pos/len(explore_pos)
+
     def Search(self):
         if self.verbose:
             print("Searching landmark :",self.target)
@@ -166,8 +193,9 @@ class DQNAgent :
                 self.search_atempt = 0
                 return -1
 
-        print("Result :", self.position)
-        self.environement.AddPredictedLandmark(self.target,self.position)
+        final_pos = self.Focus(self.position)
+        print("Result :", final_pos)
+        self.environement.AddPredictedLandmark(self.target,final_pos)
 
     def Visited(self):
         visited = False

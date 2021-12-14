@@ -368,8 +368,8 @@ class DNet(nn.Module):
             spatial_dims=3,
             in_channels=1,
             out_channels=in_channels,
-            growth_rate = 24,
-            block_config = (3, 3),
+            growth_rate = 34,
+            block_config = (6, 12, 24, 16),
         )
 
         self.dens = DN(

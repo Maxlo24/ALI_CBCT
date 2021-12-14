@@ -50,10 +50,10 @@ def main(args):
     }
 
     # environement_lst = GenPredictEnvironment(environments_param,agents_param)
-    environement_lst, agent_lst = GetTrainingEnvironementsAgents(environments_param,agents_param)
+    # environement_lst, agent_lst = GetTrainingEnvironementsAgents(environments_param,agents_param)
 
-    agent_lst = GetAgentLst(agents_param)
-    brain_lst = GetBrain(args.dir_model)
+    # agent_lst = GetAgentLst(agents_param)
+    # brain_lst = GetBrain(args.dir_model)
     # environement_lst = [environement_lst[0]]
     # agent_lst = [agent_lst[0]]
 
@@ -68,27 +68,27 @@ def main(args):
     # print("Loading Feature Net" , args.feat_extract_model)
     # featNet.load_state_dict(torch.load(args.feat_extract_model,map_location=DEVICE)) 
 
-    for agent in agent_lst:
-        brain = Brain(
-            network_type = RNet,
-            network_nbr = dim,
-            device = DEVICE,
-            in_channels = trainsitionLayerSize,
-            out_channels = len(movements["id"]),
-            feature_extract_net=featNet,
-            pretrained_featNet=True,
-            )
-        brain.LoadModels(brain_lst[agent.target])
-        agent.SetBrain(brain)
+    # for agent in agent_lst:
+    #     brain = Brain(
+    #         network_type = RNet,
+    #         network_nbr = dim,
+    #         device = DEVICE,
+    #         in_channels = trainsitionLayerSize,
+    #         out_channels = len(movements["id"]),
+    #         feature_extract_net=featNet,
+    #         pretrained_featNet=True,
+    #         )
+    #     brain.LoadModels(brain_lst[agent.target])
+    #     agent.SetBrain(brain)
 
 
-    for environment in environement_lst:
-        print(environment.images_path[0])
-        for agent in agent_lst:
-            agent.SetEnvironement(environment)
-            agent.Search()
-            # PlotAgentPath(agent)
-        environment.SavePredictedLandmarks()
+    # for environment in environement_lst:
+    #     print(environment.images_path[0])
+    #     for agent in agent_lst:
+    #         agent.SetEnvironement(environment)
+    #         agent.Search()
+    #         # PlotAgentPath(agent)
+    #     environment.SavePredictedLandmarks()
         
 
     # for e in environement_lst:
@@ -101,8 +101,8 @@ def main(args):
     data_result = ReslutAccuracy(args.dir_scans)
     # PlotResults(data_result)
 
-    data_discret_result = ResultDiscretAccuracy(environement_lst,args.spacing[-1])
-    PlotResults(data_discret_result)
+    # data_discret_result = ResultDiscretAccuracy(environement_lst,args.spacing[-1])
+    # PlotResults(data_discret_result)
 
 
 
@@ -115,7 +115,7 @@ if __name__ ==  '__main__':
     input_group.add_argument('-fem','--feat_extract_model', type=str, help='Directory of the trained feature extraction models',default= '/Users/luciacev-admin/Desktop/MSDRL_models/ALI_CNN_models_2021_26_10')
 
     #Environment
-    input_group.add_argument('-lm','--landmarks',nargs="+",type=str,help="Prepare the data for uper and/or lower landmark training (ex: U L CB)", default=["U","L","CB"])
+    input_group.add_argument('-lm','--landmarks',nargs="+",type=str,help="Prepare the data for uper and/or lower landmark training (ex: U L CB)", default=["U"])
     input_group.add_argument('-sp', '--spacing', nargs="+", type=float, help='Spacing of the different scales', default=[1,0.3])
     
     #Agent

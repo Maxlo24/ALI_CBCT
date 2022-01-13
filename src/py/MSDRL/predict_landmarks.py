@@ -14,7 +14,7 @@ import os
 import torch
 
 from GlobalVar import*
-from Models_class import (Brain,RNet,ADL,DQN,Gen121DensNet)
+from Models_class import (Brain,DNet,RNet,ADL,DQN,Gen121DensNet)
 from Agents_class import (DQNAgent,)
 from Environement_class import (Environement)
 
@@ -70,7 +70,7 @@ def main(args):
 
     # for agent in agent_lst:
     #     brain = Brain(
-    #         network_type = RNet,
+    #         network_type = DNet,
     #         network_nbr = dim,
     #         device = DEVICE,
     #         in_channels = trainsitionLayerSize,
@@ -80,7 +80,6 @@ def main(args):
     #         )
     #     brain.LoadModels(brain_lst[agent.target])
     #     agent.SetBrain(brain)
-
 
     # for environment in environement_lst:
     #     print(environment.images_path[0])

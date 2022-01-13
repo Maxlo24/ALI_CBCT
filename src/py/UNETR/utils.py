@@ -522,7 +522,7 @@ def IoU_Dice(y_true_lst, y_pred_lst):
 #  Setup Training
 # #####################################
 
-def GetDataList(dirDict):
+def  GetDataList(dirDict):
     """
     Go through each dirPath directory to generate a list of dictionary 
     each dictionary contain the key-n : filepath of the sorted key-n : dirPath directorys

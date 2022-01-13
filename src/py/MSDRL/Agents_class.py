@@ -150,7 +150,7 @@ class DQNAgent :
             ],
             dtype=np.int16
         )
-        radius = 3
+        radius = 4
         final_pos = np.array([0,0,0])
         for pos in explore_pos:
             found = False

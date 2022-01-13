@@ -39,9 +39,10 @@ def GetEnvironmentLst(environments_param):
        scan_lst.append([])
        LM_file_lst.append([])
 
-    U_fcsv_lst = []
-    L_fcsv_lst = []
-    CB_fcsv_lst = []
+    fcsv_dic = {}
+    for lm in environments_param["landmarks"]:
+        fcsv_dic[lm] = []
+
 
     
 
@@ -63,12 +64,9 @@ def GetEnvironmentLst(environments_param):
         if not environments_param["rotated"]:
             if os.path.isfile(img_fn) and ".mrk.json" in img_fn:
                 baseName = os.path.basename(img_fn)
-                if "_U." in baseName :
-                    U_fcsv_lst.append(img_fn)
-                elif "_L." in baseName :
-                    L_fcsv_lst.append(img_fn)
-                elif "_CB." in baseName :
-                    CB_fcsv_lst.append(img_fn)
+                for lm in environments_param["landmarks"]:
+                    if "_"+lm+"." in baseName :
+                        fcsv_dic[lm].append(img_fn)
 
         else:
             if os.path.isfile(img_fn) and ".json" in img_fn:
@@ -87,9 +85,8 @@ def GetEnvironmentLst(environments_param):
             for i,spacing in enumerate(environments_param["spacings"]):
                 images_path.append(scan_lst[i][n])
             data["images"] = images_path
-            data["U"] = U_fcsv_lst[n]
-            data["L"] = L_fcsv_lst[n]
-            data["CB"] = CB_fcsv_lst[n]
+            for lm in environments_param["landmarks"]:
+                data[lm] = fcsv_dic[lm][n]
         else:
             lm_data = []
             for i,spacing in enumerate(environments_param["spacings"]):

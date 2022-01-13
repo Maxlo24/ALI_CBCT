@@ -19,11 +19,6 @@ def main(args):
     spacing_lst = args.spacing
     # FOV = args.agent_FOV
 
-
-
-
-    
-
     # a = agent_lst[1]
     # # a = TrainingAgent()
     # env = environement_lst[0]

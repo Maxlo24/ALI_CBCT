@@ -96,13 +96,13 @@ class Environement :
 
 
     def GenerateImages(self,ref_img,spacing_lst):
-        self.images_path = ref_img
+        self.images_path = [ref_img]
 
         data = []
         sizes = []
         spacings = []
         origins = []
-        
+        print(spacing_lst)
         for spacing in spacing_lst:
             img = ItkToSitk(SetSpacing(ref_img,[spacing,spacing,spacing]))
             # sizes.append(np.array(img.GetSize()))
@@ -110,8 +110,9 @@ class Environement :
             origin = img.GetOrigin()
             origins.append(np.array([origin[2],origin[1],origin[0]]))
             img_ar = sitk.GetArrayFromImage(img)#.astype(dtype=np.float32)
-            sizes.append(np.array(np.shape(img_ar)))
-            data.append(torch.from_numpy(self.transform(img_ar)).type(torch.int16))
+            img_ar_correct = self.CorrectImgContrast(img_ar,0.03, 0.99)
+            sizes.append(np.array(np.shape(img_ar_correct)))
+            data.append(torch.from_numpy(self.transform(img_ar_correct)).type(torch.int16))
 
         self.dim = len(data)
         self.data = data
@@ -408,9 +409,12 @@ class Environement :
         for group,list in landmark_dic.items():
 
             scan_name = os.path.basename(self.images_path[-1]).split(".")
-            elements = scan_name[0].split("_")
-            patient = elements[0] + "_" + elements[1]
-            json_name = patient + "_"+id+"_"+group+".mrk.json"
+            try:
+                elements = scan_name[0].split("_")
+                patient = elements[0] + "_" + elements[1]
+                json_name = patient + "_"+id+"_"+group+".mrk.json"
+            except :
+                json_name = scan_name[0] + "_" + id + ".mrk.json"
 
             file_path = os.path.join(os.path.dirname(self.images_path[0]),json_name)
             groupe_data = {}
@@ -480,6 +484,29 @@ class Environement :
             path = os.path.join(out_dir,path)
             with open(path, 'w') as fp:
                 json.dump(data, fp, ensure_ascii=False, indent=1)
+
+    def CorrectImgContrast(self,img,min_porcent,max_porcent):
+        img_min = np.min(img)
+        img_max = np.max(img)
+        img_range = img_max - img_min
+        # print(img_min,img_max,img_range)
+
+        definition = 1000
+        histo = np.histogram(img,definition)
+        cum = np.cumsum(histo[0])
+        cum = cum - np.min(cum)
+        cum = cum / np.max(cum)
+
+        res_high = list(map(lambda i: i> max_porcent, cum)).index(True)
+        res_max = (res_high * img_range)/definition + img_min
+
+        res_low = list(map(lambda i: i> min_porcent, cum)).index(True)
+        res_min = (res_low * img_range)/definition + img_min
+
+        img = np.where(img > res_max, res_max,img)
+        img = np.where(img < res_min, res_min,img)
+
+        return img
 
 
         # self.SaveCBCT(0,"")

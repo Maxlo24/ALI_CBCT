@@ -53,7 +53,7 @@ def main(args):
     # environement_lst, agent_lst = GetTrainingEnvironementsAgents(environments_param,agents_param)
 
     # agent_lst = GetAgentLst(agents_param)
-    # brain_lst = GetBrain(args.dir_model)
+    brain_lst = GetBrain(args.dir_model)
     # environement_lst = [environement_lst[0]]
     # agent_lst = [agent_lst[0]]
 

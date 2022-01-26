@@ -62,6 +62,8 @@ class DQNAgent :
         self.position_shortmem = position_shortmem
 
         self.search_atempt = 0
+        self.speed_lst = [2,1]
+        self.speed = self.speed_lst[0]
 
 
     def SetEnvironement(self, environement): self.environement = environement
@@ -76,7 +78,7 @@ class DQNAgent :
         self.position = (self.position*(self.environement.GetSpacing(self.scale_state)/self.environement.GetSpacing(scale))).astype(np.int16)
         self.scale_state = scale
         self.search_atempt = 0
-
+        self.speed = self.speed_lst[scale]
 
     def SetPosAtCenter(self):
         self.position = self.environement.GetSize(self.scale_state)/2
@@ -113,7 +115,7 @@ class DQNAgent :
         return self.brain.Predict(self.scale_state,self.GetState())
         
     def Move(self, movement_idx):
-        new_pos = self.position + self.movement_matrix[movement_idx]
+        new_pos = self.position + self.movement_matrix[movement_idx]*self.speed
         if new_pos.all() > 0 and (new_pos < self.environement.GetSize(self.scale_state)).all():
             self.position = new_pos
             # if self.verbose:
@@ -204,7 +206,6 @@ class DQNAgent :
             if np.array_equal(self.position,previous_pos):
                 visited = True
         return visited
-
 
 class RLAgent :
     def __init__(

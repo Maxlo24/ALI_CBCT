@@ -74,8 +74,6 @@ def GetEnvironmentLst(environments_param):
                     if sp_str in baseName:
                         LM_file_lst[i].append(img_fn)
 
-
-
     data_lst = []
     for n in range(0,len(scan_lst[0])):
         data = {}

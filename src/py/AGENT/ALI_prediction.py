@@ -103,7 +103,6 @@ def main(args):
     dim = len(args.spacings)
     movements = MOVEMENTS[args.movement]
 
-
     agents_param = {
         "type" : DQNAgent,
         "FOV" : args.agent_FOV,

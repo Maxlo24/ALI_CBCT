@@ -12,6 +12,7 @@ from utils import (
 import SimpleITK as sitk
 import os
 import torch
+import time
 
 from GlobalVar import*
 from Models_class import (Brain,DNet,RNet,ADL,DQN,Gen121DensNet)
@@ -81,13 +82,20 @@ def main(args):
         brain.LoadModels(brain_lst[agent.target])
         agent.SetBrain(brain)
 
+    start_time = time.time()
+
+    tot_step = 0
     for environment in environement_lst:
         print(environment.images_path[0])
         for agent in agent_lst:
             agent.SetEnvironement(environment)
-            agent.Search()
+            tot_step += agent.Search()
             # PlotAgentPath(agent)
         environment.SavePredictedLandmarks()
+    
+    print("Total steps:",tot_step)    
+    end_time = time.time()
+    print('prediction time :' , end_time-start_time)
         
 
     # for e in environement_lst:

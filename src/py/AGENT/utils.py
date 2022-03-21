@@ -152,6 +152,50 @@ def GenPredictEnvironment(environments_param,agents_param):
         environement_lst.append(env)
     return environement_lst
 
+
+
+def CorrectHisto(filepath,outpath,min_porcent=0.01,max_porcent = 0.95,i_min=-3000):
+
+    print("Correcting scan contrast :", filepath)
+    input_img = sitk.ReadImage(filepath) 
+    input_img = sitk.Cast(input_img, sitk.sitkFloat32)
+    img = sitk.GetArrayFromImage(input_img)
+
+
+    img_min = np.min(img)
+    img_max = np.max(img)
+    img_range = img_max - img_min
+    # print(img_min,img_max,img_range)
+
+    definition = 1000
+    histo = np.histogram(img,definition)
+    cum = np.cumsum(histo[0])
+    cum = cum - np.min(cum)
+    cum = cum / np.max(cum)
+
+    res_high = list(map(lambda i: i> max_porcent, cum)).index(True)
+    res_max = (res_high * img_range)/definition + img_min
+
+    res_low = list(map(lambda i: i> min_porcent, cum)).index(True)
+    res_min = (res_low * img_range)/definition + img_min
+
+    # print(res_min,res_min)
+
+    img = np.where(img > res_max, res_max,img)
+    img = np.where(img < res_min, res_min,img)
+
+    output = sitk.GetImageFromArray(img)
+    output.SetSpacing(input_img.GetSpacing())
+    output.SetDirection(input_img.GetDirection())
+    output.SetOrigin(input_img.GetOrigin())
+    output = sitk.Cast(output, sitk.sitkInt16)
+
+
+    writer = sitk.ImageFileWriter()
+    writer.SetFileName(outpath)
+    writer.Execute(output)
+    return output
+
 def GetBrain(dir_path):
     brainDic = {}
     normpath = os.path.normpath("/".join([dir_path, '**', '']))
@@ -270,12 +314,14 @@ def CorrectCSV(filePath, Rcar = [" ", "-1"], Rlab = ["RGo_LGo", "RCo_LCo", "LCo_
     Remove all the unwanted parts of a fiducial file ".fcsv" :
     - the spaces " "
     - the dash ! "-1"
-    _ the labels in the list
+    - the labels in the list
 
     Parameters
     ----------
     filePath
      path of the .fcsv file 
+     Rcar : caracter to remove
+     Rlab : landmark to remove
     """
     file_data = []
     with open(filePath, mode='r') as fcsv_file:
@@ -370,6 +416,14 @@ def ReadFCSV(filePath):
     return Landmark_dic
 
 def SaveJsonFromFcsv(file_path,out_path):
+    """
+    Save a .fcsv in a .json file
+
+    Parameters
+    ----------
+    file_path : path of the .fcsv file 
+    out_path : path of the .json file 
+    """
     groupe_data = ReadFCSV(file_path)
     lm_lst = GenControlePoint(groupe_data)
     WriteJson(lm_lst,out_path)

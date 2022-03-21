@@ -146,7 +146,7 @@ class DQNAgent :
                 [1,0,0],
                 [-1,0,0],
                 [0,1,0],
-                [0,-1,1],
+                [0,-1,0],
                 [0,0,1],
                 [0,0,-1]
             ],
@@ -175,8 +175,10 @@ class DQNAgent :
         self.SetRandomPos()
         self.SavePos()
         found = False
+        tot_step = 0
         while not found:
             # action = self.environement.GetBestMove(self.scale_state,self.position,self.target)
+            tot_step+=1
             action = self.PredictAction()
             self.Move(action)
             if self.Visited():
@@ -198,6 +200,7 @@ class DQNAgent :
         final_pos = self.Focus(self.position)
         print("Result :", final_pos)
         self.environement.AddPredictedLandmark(self.target,final_pos)
+        return tot_step
 
     def Visited(self):
         visited = False

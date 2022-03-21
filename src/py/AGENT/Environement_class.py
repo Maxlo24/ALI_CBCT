@@ -110,7 +110,7 @@ class Environement :
             origin = img.GetOrigin()
             origins.append(np.array([origin[2],origin[1],origin[0]]))
             img_ar = sitk.GetArrayFromImage(img)#.astype(dtype=np.float32)
-            img_ar_correct = self.CorrectImgContrast(img_ar,0.03, 0.99)
+            img_ar_correct = self.CorrectImgContrast(img_ar,0.01, 0.99)
             sizes.append(np.array(np.shape(img_ar_correct)))
             data.append(torch.from_numpy(self.transform(img_ar_correct)).type(torch.int16))
 
@@ -509,19 +509,3 @@ class Environement :
         return img
 
 
-        # self.SaveCBCT(0,"")
-
-        # landmarks = []
-        # for lm_dic in self.dim_landmarks[dim]:
-        #     dic = {}
-        #     for lm,pos in lm_dic.items():
-        #         dic[lm] = pos.tolist()
-        #     landmarks.append(dic)
-
-        # data = {
-        #     # "files_path":self.images_path,
-        #     "Landmarks":landmarks
-        # }
-
-        # with open(out_path, 'w') as fp:
-        #     json.dump(data, fp, ensure_ascii=False, indent=1)

@@ -3,17 +3,11 @@ import torch
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-
 LABELS = {
-    # "U" : ['PNS','ANS','A','UR6apex','UR3apex','U1apex','UL3apex','UL6apex','UR6d','UR6m','UR3tip','UItip','UL3tip','UL6m','UL6d'],
-    # "l" : ['RCo','RGo','LR6apex','LR7apex','L1apex','Me','Gn','Pog','B','LL6apex','LL7apex','LGo','LCo','LR6d','LR6m','LItip','LL6m','LL6d'],
-    # "L" : ['RCo','RGo','LR6apex','L1apex','Me','Gn','Pog','B','LL6apex','LGo','LCo','LR6d','LR6m','LItip','LL6m','LL6d'],
-    # "CB" :['Ba','S','N'],
+    "U" : ['PNS','ANS','A','UR6apex','UR3apex','U1apex','UL3apex','UL6apex','UR6d','UR6m','UR3tip','UItip','UL3tip','UL6m','UL6d'],
+    "L" : ['RCo','RGo','LR6apex','L1apex','Me','Gn','Pog','B','LL6apex','LGo','LCo','LR6d','LR6m','LItip','LL6m','LL6d'],
+    "CB" :['Ba','S','N'],
     "CI" : ["IF","ANS","UR6","UL6","UR1","UL1","UR1A","UL1A","UR2","UL2","UR2A","UL2A","UR3","UL3","UR3A","UL3A"],
-
-    "U" : ['ANS','UR6d'],
-    "L" : ['RCo','Gn'],
-    "CB" :['Ba','S'],
 }
 
 GROUPES = {}

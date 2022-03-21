@@ -150,14 +150,6 @@ class TrainingMaster :
 
     def GenerateDataLoader(self,key,agent,dim):
         dataset = []
-        
-        # pos_dataset = tqdm(
-        #     self.pos_dataset[agent.target][key][dim],
-        #     desc="Loading "+key+" crops for agent " + agent.target + " at scale "+ str(dim)
-        #     )
-
-        # for pos in self.pos_dataset[agent.target][key][dim]:            
-        #     dataset.append(pos["env"].GetSample(dim,agent.target,pos["coord"],agent.FOV,agent.movement_matrix))
 
         start_time = time.time()
         print("Generating "+key+" crops for agent " + agent.target + " at scale "+ str(dim),end="\r",flush=True)
@@ -165,7 +157,6 @@ class TrainingMaster :
         FOV = agent.FOV
         mov_mat = agent.movement_matrix
         # get_sample = lambda pos: pos["env"].GetSample(dim,target,pos["coord"],FOV,mov_mat)
-
         # dataset = list(map(get_sample,self.pos_dataset[agent.target][key][dim]))        
         # print("Loading "+key+" crops for agent " + agent.target + " at scale "+ str(dim)+" : done in %2.1f seconds" % (time.time() - start_time))
         dataset = self.crop_dataset[key]
@@ -231,20 +222,15 @@ class TrainingMaster :
                 val_ctr = 0
                 accuracy = []
 
-
-
             print("\nGlobal loop :",epoch_ctr+1,": done in %2.1f seconds" % (time.time() - start_time),"\n")
             print("==========================================================================\n")
 
-            
             epoch_ctr += data_update_freq
             self.GeneratePosDataset("train",int(self.max_train_memory_size*data_update_ratio))
 
-
-
         print("End of training")
-        for agent in self.agents:
-            for dim in range(self.env_dim):
-                val_data_loader = self.GenerateDataLoader("val",agent,dim)
-                agent.Validate(val_data_loader,dim)
+        # for agent in self.agents:
+        #     for dim in range(self.env_dim):
+        #         val_data_loader = self.GenerateDataLoader("val",agent,dim)
+        #         agent.Validate(val_data_loader,dim)
 

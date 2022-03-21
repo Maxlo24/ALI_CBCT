@@ -6,6 +6,8 @@ import datetime
 import os
 
 import torchvision
+from torchsummary import summary
+
 from torch.utils.tensorboard import SummaryWriter
 
 from torch import nn
@@ -66,6 +68,11 @@ class Brain:
             )
             net.to(self.device)
             networks.append(net)
+
+            # num_param = sum(p.numel() for p in net.parameters())
+            # print("Number of parameters :",num_param)
+            # summary(net,(1,64,64,64))
+
             if self.featNet != None:
                 optimizers.append(optim.Adam(list(self.featNet.parameters()) + list(net.parameters()), lr=learning_rate))
             else:
@@ -186,10 +193,10 @@ class Brain:
         metric = epoch_good_move/((step+1)*self.batch_size)
         
         if self.epoch_losses[n][-1] == epoch_loss: #If learning is stuck
-            self.ResetNet(n)
             print()
             print("Stuck at Loss :",epoch_loss)
             print("Net reset")
+            self.ResetNet(n)
         else:
             self.epoch_losses[n].append(epoch_loss)
             if self.verbose:
@@ -199,7 +206,7 @@ class Brain:
 
             if self.generate_tensorboard:
                 writer = self.writers[n]
-                writer.add_scalar("Training loss",epoch_loss,self.global_epoch[n])
+                # writer.add_scalar("Training loss",epoch_loss,self.global_epoch[n])
                 writer.add_scalar("Training accuracy",metric,self.global_epoch[n])
                 writer.close()
 

@@ -27,7 +27,6 @@ Search steps of the agent to find one landmark:
 ![Search_3Steps_labeled](https://user-images.githubusercontent.com/46842010/159337300-ecb9e70e-7a65-45e1-96b1-490ad7286aa7.png)
 
 
-
 Scripts for Automatic Landmark Identification in CBCT
 
 ## Prerequisites
@@ -46,18 +45,26 @@ python 3.8.8 with the anaconda environment "ALI_environment.yml":
 
 **Pre-process**
 
-To run the preprocess to organise the files and set them at the wanted spacing:
+To run the preprocess to prepare the files and set them at the wanted spacing for the training:
 
+For the Upper, Lower and Cranial base landmarks
 ```
-python3 init_training_data.py -i "path of the input folder with the scans and the segs" -o "path of the output folder"
+python3 init_training_data_ULCB.py -i "path of the input folder with the scans and the fiducial list" -o "path of the output folder"
 ```
-By defaul the spacing is set at 0.5 but we can change and add other spacing with the argument :
+
+For the canine impaction landmarks
 ```
--sp 0.X1 0.X2 ... 0.Xn 
+python3 init_training_data_Canine.py -i "path of the input folder with the scans and the fiducial list" -o "path of the output folder"
+```
+
+
+By defaul the spacing is set at 1 and 0.3 but we can change and add other spacing with the argument :
+```
+-sp x.xx x.xx
 ````
-
-To run the preprocess to correct the image contrast and fill the holes in the segmentations , run the folowing command line:
-
+A contrast adjustment is also applied but can be turned off with 
 ```
-python3 correct_file.py -i "path of the input folder with the scans and the segs" -o "path of the output folder"
-```
+-ch False
+````
+---
+

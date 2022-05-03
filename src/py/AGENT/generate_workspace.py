@@ -18,7 +18,6 @@ def main(args):
         #  print(img_fn)
         basename = os.path.basename(img_fn)
 
-
         if True in [ext in basename for ext in [".nrrd", ".nrrd.gz", ".nii", ".nii.gz", ".gipl", ".gipl.gz",".json"]]:
             dir_patient = os.path.dirname(img_fn)
 

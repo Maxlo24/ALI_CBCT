@@ -6,6 +6,9 @@ import sys
 import os
 from shutil import copyfile
 
+Left = ['CP03','CP10','CP14','CP25','CP33','CP36','CP45','CP53','CP54','CP56','CP57','CP63','CP64','CP68','UM02','UM11','UM16','UM17','UM29','UP03','UP10','UP12','UP13','UP16','CP37']
+Right = ['CP04','CP09','CP22','CP23','CP24','CP28','CP35','CP39','CP43','CP52','CP70','CP71','CP74','UM06','UM12','UM18','UM19','UP01','UP04','UP11']
+
 
 def main(args):
 
@@ -21,21 +24,27 @@ def main(args):
 
         if True in [ext in img_fn for ext in [".nrrd", ".nrrd.gz", ".nii", ".nii.gz", ".gipl", ".gipl.gz",".fcsv",".json"]]:
             #Identifying the patient id
-            file_name = basename.split(".")[0]
-            elements = file_name.split("_")
-            patient = elements[0]
-            if patient not in patients.keys():
-                patients[patient] = {"dir": os.path.dirname(img_fn)}
+            # file_name = basename.split(".")[0]
+            # elements = file_name.split("_")
+            # patient = elements[0]
 
-            if True in [scan in basename for scan in ["scan","_or","_Or"]]: # SCAN
+            patient = os.path.basename(os.path.dirname(os.path.dirname(img_fn))).replace("Pat_","").replace("UofM","UM").replace("UofP","UP")
+
+            if "_Or" in basename and not True in [scan in basename for scan in ["seg","scan","Seg","prelabel"]]: # SCAN
+                if patient not in patients.keys():
+                    patients[patient] = {"dir": os.path.dirname(img_fn)}
                 patients[patient]["scan"] = img_fn
             elif True in [char in basename for char in ['markups','Markups']] : # FIDUCIAL
+                if patient not in patients.keys():
+                    patients[patient] = {"dir": os.path.dirname(img_fn)}
                 patients[patient]["fid"] = img_fn
             else:
                 print("----> Unrecognise fiducial file found at :", img_fn)
 
         elif os.path.isfile(img_fn) and "fcsv" in img_fn:
             print("----> Unrecognise file found at :", img_fn)
+
+    # print(patients)
     
     error = False
     for patient,data in patients.items():
@@ -54,8 +63,10 @@ def main(args):
 
         scan = data["scan"]
 
-        patient_dirname = os.path.basename(data["dir"]).split(" ")[0]
-        ScanOutpath = os.path.normpath("/".join([args.out,patient_dirname]))
+        # patient_dirname = os.path.basename(data["dir"]).split(" ")[0]
+        ScanOutpath = os.path.normpath("/".join([args.out,patient]))
+
+        print(ScanOutpath)
 
         if not os.path.exists(ScanOutpath):
             os.makedirs(ScanOutpath)
@@ -68,11 +79,48 @@ def main(args):
                 CorrectHisto(outpath, outpath,0.01, 0.99)
 
         lm = "fid"
+        outLmPath = os.path.join(ScanOutpath,patient + "_lm_CI.mrk.json")
         if ".fcsv" in data[lm]:
             CorrectCSV(data[lm])
-            SaveJsonFromFcsv(data[lm],os.path.join(ScanOutpath,patient + "_lm_CI.mrk.json"))
+            SaveJsonFromFcsv(data[lm],outLmPath)
         else:
-            copyfile(data[lm],os.path.join(ScanOutpath,patient + "_lm_CI.mrk.json"))
+            copyfile(data[lm],outLmPath)
+
+
+
+        if patient in Left:
+            fin = open(outLmPath, "rt")
+            #read file contents to string
+            data = fin.read()
+            #replace all occurrences of the required string
+            data = data.replace("U3", "UL3")
+            data = data.replace("U3A", "UL3A")
+
+            #close the input file
+            fin.close()
+            #open the input file in write mode
+            fin = open(outLmPath, "wt")
+            #overrite the input file with the resulting data
+            fin.write(data)
+            #close the file
+            fin.close()
+
+        elif patient in Right:
+            fin = open(outLmPath, "rt")
+            #read file contents to string
+            data = fin.read()
+            #replace all occurrences of the required string
+            data = data.replace("U3", "UR3")
+            data = data.replace("U3A", "UR3A")
+
+            #close the input file
+            fin.close()
+            #open the input file in write mode
+            fin = open(outLmPath, "wt")
+            #overrite the input file with the resulting data
+            fin.write(data)
+            #close the file
+            fin.close()
 
 
 if __name__ ==  '__main__':

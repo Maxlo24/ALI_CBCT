@@ -154,7 +154,7 @@ def GenPredictEnvironment(environments_param,agents_param):
 
 
 
-def CorrectHisto(filepath,outpath,min_porcent=0.01,max_porcent = 0.95,i_min=-3000):
+def CorrectHisto(filepath,outpath,min_porcent=0.01,max_porcent = 0.95,i_min=-1500, i_max=4000):
 
     print("Correcting scan contrast :", filepath)
     input_img = sitk.ReadImage(filepath) 
@@ -178,6 +178,10 @@ def CorrectHisto(filepath,outpath,min_porcent=0.01,max_porcent = 0.95,i_min=-300
 
     res_low = list(map(lambda i: i> min_porcent, cum)).index(True)
     res_min = (res_low * img_range)/definition + img_min
+
+    res_min = max(res_min,i_min)
+    res_max = min(res_max,i_max)
+
 
     # print(res_min,res_min)
 
@@ -508,7 +512,7 @@ def  ReslutAccuracy(fiducial_dir):
             baseName = os.path.basename(img_fn)
             patient = os.path.basename(os.path.dirname(img_fn))
             if patient not in patients.keys():
-                patients[patient] = {"U":{},"L":{},"CB":{}}
+                patients[patient] = {"U":{},"L":{},"CB":{},"CI":{}}
 
             if "_pred_" in baseName:
                 if "_U." in baseName :
@@ -517,6 +521,8 @@ def  ReslutAccuracy(fiducial_dir):
                     patients[patient]["L"]["pred"]=img_fn
                 elif "_CB." in baseName :
                     patients[patient]["CB"]["pred"]=img_fn
+                elif "_CI." in baseName :
+                    patients[patient]["CI"]["pred"]=img_fn
             else:
                 if "_U." in baseName :
                     patients[patient]["U"]["target"]=img_fn
@@ -524,6 +530,8 @@ def  ReslutAccuracy(fiducial_dir):
                     patients[patient]["L"]["target"]=img_fn
                 elif "_CB." in baseName :
                     patients[patient]["CB"]["target"]=img_fn
+                elif "_CI." in baseName :
+                    patients[patient]["CI"]["target"]=img_fn
 
     fail = 0
     max = 0

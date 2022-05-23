@@ -54,7 +54,7 @@ lm_to_rename = {
     "UL3":"UL3IP",
 }
 
-input_dir = "/Users/luciacev-admin/Desktop/ULCB_dataset"
+input_dir = "/home/luciacev/Desktop/Maxime_Gillot/Data/ALI_CBCT"
 
 print("Reading folder : ", input_dir)
 
@@ -68,6 +68,8 @@ for img_fn in sorted(glob.iglob(normpath, recursive=True)):
 
 
 for fiducial_file in fiducial_files:
+    print("Renamed:",fiducial_file)
+    modifications = 0
     with open(fiducial_file) as f:
         data = json.load(f)
 
@@ -77,7 +79,12 @@ for fiducial_file in fiducial_files:
         if control_point["label"] not in lm_to_delete:
             if control_point["label"] in lm_to_rename.keys():
                 control_point["label"] = lm_to_rename[control_point["label"]]
+                modifications += 1
             new_control_Points.append(control_point)
+        else:
+            modifications += 1
+
+    print("modifications:", modifications)
 
     data["markups"][0]["controlPoints"] = new_control_Points
 

@@ -18,6 +18,8 @@ from monai.networks.nets.densenet import (
 )
 from resnet2p1d import *
 
+import GlobalVar as GV
+
 
 class Brain:
     def __init__(
@@ -246,9 +248,9 @@ class Brain:
                     network.state_dict(), save_path
                 )
                 # data_model["best"] = save_path
-                print("Model Was Saved ! Current Best Avg. metric: {} Current Avg. metric: {}".format(self.best_metrics[n], metric))
+                print(f"{GV.bcolors.OKGREEN}Model Was Saved ! Current Best Avg. metric: {self.best_metrics[n]} Current Avg. metric: {metric}{GV.bcolors.ENDC}")
             else:
-                print("Model Was Not Saved ! Current Best Avg. metric: {} Current Avg. metric: {}".format(self.best_metrics[n], metric))
+                print(f"Model Was Not Saved ! Current Best Avg. metric: {self.best_metrics[n]} Current Avg. metric: {metric}")
         print("--------------------------------------------------------------------------")
         if self.generate_tensorboard:
             writer = self.writers[n]

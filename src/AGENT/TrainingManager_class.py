@@ -197,7 +197,6 @@ class TrainingMaster :
             if val_done:
 
                 print("")
-                self.RotateEnvironments("train")
                 val_ctr = 0
                 accuracy = []
 

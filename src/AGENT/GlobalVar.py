@@ -12,7 +12,7 @@ GROUP_LABELS = {
 
 }
 
-LABELS_TO_TRAIN = ['Ba', 'S', 'N', 'RPo', 'LPo', 'RFZyg', 'LFZyg']
+LABELS_TO_TRAIN = ['Ba']
 
 
 LABEL_GROUPES = {}

@@ -8,14 +8,14 @@ import torch.optim as optim
 import torch.nn.functional as F
 from torch import nn
 
-from GlobalVar import*
+import GlobalVar as GV
 # from utils import(
 
 # )
 
 
 def OUT_WARNING():
-    print(f"{bcolors.WARNING}WARNING : Agent trying to go in a none existing space {bcolors.ENDC}")
+    print(f"{GV.bcolors.WARNING}WARNING : Agent trying to go in a none existing space {GV.bcolors.ENDC}")
 
 # #####################################
 #  Agents
@@ -128,12 +128,12 @@ class Agent :
 
     def Train(self, data, dim):
         if self.verbose:
-            print("Training agent :", self.target)
+            print(f"{GV.bcolors.OKCYAN}Training agent :{GV.bcolors.OKBLUE}{self.target}{GV.bcolors.ENDC}")
         self.brain.Train(data,dim)
 
     def Validate(self, data,dim):
         if self.verbose:
-            print("Validating agent :", self.target)
+            print(f"{GV.bcolors.OKCYAN}Validating agent :{GV.bcolors.OKBLUE}{self.target}{GV.bcolors.ENDC}")
         return self.brain.Validate(data,dim)
 
     def SavePos(self):

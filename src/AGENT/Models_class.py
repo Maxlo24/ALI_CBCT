@@ -113,10 +113,7 @@ class Brain:
         )
         net.to(self.device)
         self.networks[n] = net
-        if self.featNet != None:
-            self.optimizers[n] = optim.Adam(list(self.featNet.parameters()) + list(net.parameters()), lr=self.learning_rate)
-        else:
-            self.optimizers[n] = optim.Adam(net.parameters(), lr=self.learning_rate)
+        self.optimizers[n] = optim.Adam(net.parameters(), lr=self.learning_rate)
 
         self.epoch_losses[n] = [0]
         self.validation_metrics[n] = []
@@ -143,7 +140,7 @@ class Brain:
         network = self.networks[n]
         self.global_epoch[n] += 1   
         if self.verbose:
-            print("training epoch:",self.global_epoch[n],"for network :",n)
+            print("training epoch:",self.global_epoch[n],"for network :", GV.SCALE_KEYS[n])
 
         network.train()
 

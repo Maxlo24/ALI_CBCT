@@ -50,6 +50,8 @@ def main(args):
 
     # environement_lst[0].SavePredictedLandmarks(multi_scale_keys[0])
 
+    # return
+
     agents_param = {
         "type" : Agent,
         "FOV" : agent_FOV,
@@ -125,7 +127,7 @@ if __name__ ==  '__main__':
     parser = argparse.ArgumentParser(description='Training for Automatic Landmarks Identification', formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     
     input_group = parser.add_argument_group('dir')
-    input_group.add_argument('--dir_project', type=str, help='Directory with all the project',default='/home/luciacev/Desktop/Maxime_Gillot/Data/ALI_CBCT/TRAINING', required=False)
+    input_group.add_argument('--dir_project', type=str, help='Directory with all the project',default='/home/luciacev/Desktop/Maxime_Gillot/Trainings/ALI_CBCT', required=False)
     input_group.add_argument('--dir_data', type=str, help='Input directory with 3D images', default=parser.parse_args().dir_project+'/data')
     input_group.add_argument('--dir_scans', type=str, help='Input directory with the scans',default=parser.parse_args().dir_data+'/Patients')
     input_group.add_argument('--dir_model', type=str, help='Output directory of the training',default= parser.parse_args().dir_data+'/ALI_models_'+datetime.datetime.now().strftime("%Y_%d_%m"))

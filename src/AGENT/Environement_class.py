@@ -95,6 +95,7 @@ class Environement :
         markups = data["markups"][0]["controlPoints"]
         for markup in markups:
             if markup["label"] not in GV.LABELS:
+                print(fiducial_path)
                 print(f"{GV.bcolors.WARNING}WARNING : {markup['label']} is an unusual landmark{GV.bcolors.ENDC}")
             # test.append(markup["label"])
             mark_pos = markup["position"]

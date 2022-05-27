@@ -6,9 +6,24 @@ import sys
 import os
 from shutil import copyfile
 
-Left = ['CP03','CP10','CP14','CP25','CP33','CP36','CP45','CP53','CP54','CP56','CP57','CP63','CP64','CP68','UM02','UM11','UM16','UM17','UM29','UP03','UP10','UP12','UP13','UP16','CP37']
+Left = ['CP03','CP10','CP14','CP25','CP33','CP36','CP45','CP53','CP54','CP56','CP57','CP63','CP64','CP68','UM02','UM11','UM16','UM17','UM29','UP03','UP05','UP10','UP12','UP13','UP16','CP37']
 Right = ['CP04','CP09','CP22','CP23','CP24','CP28','CP35','CP39','CP43','CP52','CP70','CP71','CP74','UM06','UM12','UM18','UM19','UP01','UP04','UP11']
 
+
+LABEL_TO_REMOVE = ["UR1A","UR2A","UL1A","UL2A","UR6_UL6","UR1_UL1","U1A","U2A"]
+
+Rename = {
+    'UR6' : 'UR6MP',
+    'UL6' : 'UL6MP',
+    'UR1' : 'UR1O',
+    'UL1' : 'UL1O',
+    'UR2' : 'UR2O',
+    'UL2' : 'UL2O',
+    '"UR3"' : '"UR3OIP"',
+    '"UL3"' : '"UL3OIP"',
+    '"UR3A"' : '"UR3RIP"',
+    '"UL3A"' : '"UL3RIP"',
+    }
 
 def main(args):
 
@@ -71,17 +86,17 @@ def main(args):
         if not os.path.exists(ScanOutpath):
             os.makedirs(ScanOutpath)
 
-        for sp in args.spacing:
-            new_name = patient + "_scan_sp" + str(sp).replace(".","-") + ".nii.gz"
-            outpath = os.path.join(ScanOutpath,new_name)
-            SetSpacing(scan,[sp,sp,sp],outpath)
-            if args.correct_histo:
-                CorrectHisto(outpath, outpath,0.01, 0.99)
+        # for sp in args.spacing:
+        #     new_name = patient + "_scan_sp" + str(sp).replace(".","-") + ".nii.gz"
+        #     outpath = os.path.join(ScanOutpath,new_name)
+        #     SetSpacing(scan,[sp,sp,sp],outpath)
+        #     if args.correct_histo:
+        #         CorrectHisto(outpath, outpath,0.01, 0.99)
 
         lm = "fid"
         outLmPath = os.path.join(ScanOutpath,patient + "_lm_CI.mrk.json")
         if ".fcsv" in data[lm]:
-            CorrectCSV(data[lm])
+            CorrectCSV(data[lm],Rlab=LABEL_TO_REMOVE)
             SaveJsonFromFcsv(data[lm],outLmPath)
         else:
             copyfile(data[lm],outLmPath)
@@ -94,6 +109,8 @@ def main(args):
             data = fin.read()
             #replace all occurrences of the required string
             data = data.replace("U3", "UL3")
+            data = data.replace("U1", "UL1")
+            data = data.replace("U2", "UL2")
             data = data.replace("U3A", "UL3A")
 
             #close the input file
@@ -111,6 +128,8 @@ def main(args):
             data = fin.read()
             #replace all occurrences of the required string
             data = data.replace("U3", "UR3")
+            data = data.replace("U1", "UR1")
+            data = data.replace("U2", "UR2")
             data = data.replace("U3A", "UR3A")
 
             #close the input file
@@ -121,6 +140,23 @@ def main(args):
             fin.write(data)
             #close the file
             fin.close()
+
+        fin = open(outLmPath, "rt")
+        #read file contents to string
+        data = fin.read()
+        #replace all occurrences of the required string
+
+        for name,rename in Rename.items():
+            data = data.replace(name,rename)
+
+        #close the input file
+        fin.close()
+        #open the input file in write mode
+        fin = open(outLmPath, "wt")
+        #overrite the input file with the resulting data
+        fin.write(data)
+        #close the file
+        fin.close()
 
 
 if __name__ ==  '__main__':
@@ -133,7 +169,7 @@ if __name__ ==  '__main__':
     output_params.add_argument('-o','--out', type=str, help='Output directory', required=True)
     output_params.add_argument('-ch','--correct_histo', type=bool, help='Is contrast adjustment needed', default=True)
 
-    input_group.add_argument('-sp', '--spacing', nargs="+", type=float, help='Wanted output x spacing', default=[1,0.25])
+    input_group.add_argument('-sp', '--spacing', nargs="+", type=float, help='Wanted output x spacing', default=[1,0.3])
 
     args = parser.parse_args()
     

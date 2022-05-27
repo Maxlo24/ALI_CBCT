@@ -8,7 +8,7 @@ import torch
 import json
 
 from GlobalVar import*
-from skimage import exposure
+# from skimage import exposure
 
 
 import seaborn as sns

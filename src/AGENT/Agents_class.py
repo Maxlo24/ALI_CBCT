@@ -27,6 +27,7 @@ class Agent :
         self,
         targeted_landmark,
         movements,
+        scale_keys,
         brain = None,
         environement = None,
         FOV = [32,32,32],
@@ -37,6 +38,7 @@ class Agent :
     ) -> None:
     
         self.target = targeted_landmark
+        self.scale_keys = scale_keys
         self.environement = environement
         self.scale_state = 0
         self.start_pos_radius = start_pos_radius
@@ -75,19 +77,19 @@ class Agent :
             mem.clear()
 
     def GoToScale(self,scale=0):
-        self.position = (self.position*(self.environement.GetSpacing(self.scale_state)/self.environement.GetSpacing(scale))).astype(np.int16)
+        self.position = (self.position*(self.environement.GetSpacing(self.scale_keys[self.scale_state])/self.environement.GetSpacing(self.scale_keys[scale]))).astype(np.int16)
         self.scale_state = scale
         self.search_atempt = 0
         self.speed = self.speed_per_scale[scale]
 
     def SetPosAtCenter(self):
-        self.position = self.environement.GetSize(self.scale_state)/2
+        self.position = self.environement.GetSize(self.scale_keys[self.scale_state])/2
 
     def SetRandomPos(self):
         if self.scale_state == 0:
-            rand_coord = np.random.randint(1, self.environement.GetSize(self.scale_state), dtype=np.int16)
+            rand_coord = np.random.randint(1, self.environement.GetSize(self.scale_keys[self.scale_state]), dtype=np.int16)
             self.start_position = rand_coord
-            # rand_coord = self.environement.GetLandmarkPos(self.scale_state,self.target)
+            # rand_coord = self.environement.GetLandmarkPos(self.scale_keys[self.scale_state],self.target)
         else:
             rand_coord = np.random.randint([1,1,1], self.start_pos_radius*2) - self.start_pos_radius
             rand_coord = self.start_position + rand_coord
@@ -98,12 +100,12 @@ class Agent :
 
 
     def GetState(self):
-        state = self.environement.GetZone(self.scale_state,self.position,self.FOV)
+        state = self.environement.GetZone(self.scale_keys[self.scale_state] ,self.position,self.FOV)
         return state
 
     def UpScale(self):
         scale_changed = False
-        if self.scale_state < self.environement.dim -1 :
+        if self.scale_state < self.environement.scale_nbr-1:
             self.GoToScale(self.scale_state + 1)
             scale_changed = True
             self.start_position = self.position
@@ -116,7 +118,7 @@ class Agent :
         
     def Move(self, movement_idx):
         new_pos = self.position + self.movement_matrix[movement_idx]*self.speed
-        if new_pos.all() > 0 and (new_pos < self.environement.GetSize(self.scale_state)).all():
+        if new_pos.all() > 0 and (new_pos < self.environement.GetSize(self.scale_keys[self.scale_state])).all():
             self.position = new_pos
             # if self.verbose:
             #     print("Moving ", self.movement_id[movement_idx])
@@ -153,7 +155,7 @@ class Agent :
             dtype=np.int16
         )
         radius = 4
-        final_pos = np.array([0,0,0])
+        final_pos = np.array([0,0,0], dtype=np.float64)
         for pos in explore_pos:
             found = False
             self.position_shortmem[self.scale_state].clear()
@@ -172,7 +174,7 @@ class Agent :
             print("Searching landmark :",self.target)
         self.GoToScale()
         self.SetPosAtCenter()
-        self.SetRandomPos()
+        # self.SetRandomPos()
         self.SavePos()
         found = False
         tot_step = 0
@@ -189,7 +191,7 @@ class Agent :
                     print("Landmark found at scale :",self.scale_state)
                     print("Agent pos = ", self.position)
                     if self.environement.LandmarkIsPresent(self.target):
-                        print("Landmark pos = ", self.environement.GetLandmarkPos(self.scale_state,self.target))
+                        print("Landmark pos = ", self.environement.GetLandmarkPos(self.scale_keys[self.scale_state],self.target))
                 scale_changed = self.UpScale()
                 found = not scale_changed
             if self.search_atempt > 2:

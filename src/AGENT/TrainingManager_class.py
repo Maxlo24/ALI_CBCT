@@ -119,6 +119,10 @@ class TrainingMaster :
                 if env.LandmarkIsPresent(agent.target):
                     valid_env.append(env)
 
+            # if len(valid_env) == 0:
+            #     print(f"{GV.bcolors.WARNING}No valid environment for target : {agent.target} {GV.bcolors.ENDC}")
+            #     return
+
             # print("start")
             # start_time = time.time()
             # # pos_dataset = tqdm(range(size),desc="Generating "+key+" dataset for agent " + agent.target)

@@ -7,7 +7,7 @@ import glob
 import torch
 import json
 
-from GlobalVar import*
+import GlobalVar as GV
 # from skimage import exposure
 
 
@@ -19,11 +19,12 @@ def GetAgentLst(agents_param):
     print("-- Generating agents --")
 
     agent_lst = []
-    for label in LABELS_TO_TRAIN:
-        print(f"{bcolors.OKCYAN}Generating Agent for the lamdmark: {bcolors.OKBLUE}{label}{bcolors.ENDC}")
+    for label in GV.LABELS_TO_TRAIN:
+        print(f"{GV.bcolors.OKCYAN}Generating Agent for the lamdmark: {GV.bcolors.OKBLUE}{label}{GV.bcolors.ENDC}")
         agt = agents_param["type"](
             targeted_landmark=label,
             movements = agents_param["movements"],
+            scale_keys = agents_param["scale_keys"],
             FOV=agents_param["FOV"],
             start_pos_radius = agents_param["spawn_rad"],
             speed_per_scale = agents_param["speed_per_scale"],
@@ -31,7 +32,7 @@ def GetAgentLst(agents_param):
         )
         agent_lst.append(agt)
 
-    print(f"{bcolors.OKGREEN}{len(agent_lst)} agent successfully generated. {bcolors.ENDC}")
+    print(f"{GV.bcolors.OKGREEN}{len(agent_lst)} agent successfully generated. {GV.bcolors.ENDC}")
 
     return agent_lst
 
@@ -59,7 +60,7 @@ def GetEnvironmentLst(environments_param):
     landmark_summary_group = {}
 
 
-    print(f"{bcolors.OKCYAN}Reading folder {bcolors.ENDC}:"+environments_param["dir"])
+    print(f"{GV.bcolors.OKCYAN}Reading folder {GV.bcolors.ENDC}:"+environments_param["dir"])
     print("Selected scale_spacing : ", scale_spacing)
     
     spacing_str = ["sp"+str(spacing).replace(".","-") for spacing in scale_spacing]
@@ -75,8 +76,10 @@ def GetEnvironmentLst(environments_param):
                 patient_info = baseName.split("_lm_")
             elif "_scan_" in baseName:
                 patient_info = baseName.split("_scan_")
+            elif "_Pred" in baseName or 'Result' in baseName:
+                print(f'{GV.bcolors.OKCYAN}Skipping file {GV.bcolors.ENDC}: {img_fn}')
             else:
-                print(f"{bcolors.WARNING}Unknown file format : {img_fn} ----->{bcolors.FAIL} missing '_lm_' or '_scan_' in the filename{bcolors.ENDC}")
+                print(f"{GV.bcolors.WARNING}Unknown file format : {img_fn} ----->{GV.bcolors.FAIL} missing '_lm_' or '_scan_' in the filename{GV.bcolors.ENDC}")
                 error = True
 
             patient = patient_info[0]
@@ -113,20 +116,20 @@ def GetEnvironmentLst(environments_param):
         # print("Number of scans for the spacing ", sp, " : ", nbr_scan)
         if nbr_scan != nbr_patient:
             error = True
-            print(f"{bcolors.FAIL}FAIL : the number of scans for the spacing {sp} is different from the number of patients{bcolors.ENDC}")
+            print(f"{GV.bcolors.FAIL}FAIL : the number of scans for the spacing {sp} is different from the number of patients{GV.bcolors.ENDC}")
     for lm in landmark_summary_group.keys():
         nbr_lm = landmark_summary_group[lm]
         # print("Number of landmarks for the landmark ", lm, " : ", nbr_lm)
         if nbr_lm != nbr_patient:
-            print(f"{bcolors.WARNING}Warning : the number of landmarks for the landmark {lm} is different from the number of patients{bcolors.ENDC}")
+            print(f"{GV.bcolors.WARNING}Warning : the number of landmarks for the landmark {lm} is different from the number of patients{GV.bcolors.ENDC}")
 
     if error:
-        raise ValueError(f"{bcolors.FAIL}Error in the dataset folder{bcolors.ENDC}")
+        raise ValueError(f"{GV.bcolors.FAIL}Error in the dataset folder{GV.bcolors.ENDC}")
 
     print("-- Generating environments --")
     environement_lst = []
     for patient,data in patients.items():
-        print(f"{bcolors.OKCYAN}Generating Environement for the patient: {bcolors.OKBLUE}{patient}{bcolors.ENDC}")
+        print(f"{GV.bcolors.OKCYAN}Generating Environement for the patient: {GV.bcolors.OKBLUE}{patient}{GV.bcolors.ENDC}")
         env = environments_param["type"](
             patient_id = patient,
             device = environments_param["device"],
@@ -139,7 +142,7 @@ def GetEnvironmentLst(environments_param):
             env.LoadJsonLandmarks(lm_file)
         environement_lst.append(env)
 
-    print(f"{bcolors.OKGREEN}{len(environement_lst)} environment successfully generated. {bcolors.ENDC}")
+    print(f"{GV.bcolors.OKGREEN}{len(environement_lst)} environment successfully generated. {GV.bcolors.ENDC}")
 
     return environement_lst
 
@@ -211,16 +214,18 @@ def GetBrain(dir_path):
                 network = {num : img_fn}
                 brainDic[lab] = network
 
+    return brainDic
+
     # print(brainDic)
-    out_dic = {}
-    for l_key in brainDic.keys():
-        networks = []
-        for n_key in range(len(brainDic[l_key].keys())):
-            networks.append(brainDic[l_key][str(n_key)])
+    # out_dic = {}
+    # for l_key in brainDic.keys():
+    #     networks = []
+    #     for n_key in range(len(brainDic[l_key].keys())):
+    #         networks.append(brainDic[l_key][n_key])
 
-        out_dic[l_key] = networks
+    #     out_dic[l_key] = networks
 
-    return out_dic
+    # return out_dic
 
 def ResampleImage(input,size,spacing,origin,direction,interpolator,VectorImageType):
         ResampleType = itk.ResampleImageFilter[VectorImageType, VectorImageType]
@@ -499,80 +504,37 @@ def WriteJson(lm_lst,out_path):
 
     f.close
 
-def  ReslutAccuracy(fiducial_dir):
+def  ReslutAccuracy(environments, scale):
+
+    print(f'{GV.bcolors.OKGREEN}====== RESULTS ======{GV.bcolors.ENDC}')
 
     error_dic = {"labels":[], "error":[]}
     patients = {}
-    normpath = os.path.normpath("/".join([fiducial_dir, '**', '']))
-    for img_fn in sorted(glob.iglob(normpath, recursive=True)):
-        if os.path.isfile(img_fn) and ".mrk.json" in img_fn:
-            baseName = os.path.basename(img_fn)
-            patient = os.path.basename(os.path.dirname(img_fn))
-            if patient not in patients.keys():
-                patients[patient] = {"U":{},"L":{},"CB":{},"CI":{}}
-
-            if "_pred_" in baseName:
-                if "_U." in baseName :
-                    patients[patient]["U"]["pred"]=img_fn
-                elif "_L." in baseName :
-                    patients[patient]["L"]["pred"]=img_fn
-                elif "_CB." in baseName :
-                    patients[patient]["CB"]["pred"]=img_fn
-                elif "_CI." in baseName :
-                    patients[patient]["CI"]["pred"]=img_fn
-            else:
-                if "_U." in baseName :
-                    patients[patient]["U"]["target"]=img_fn
-                elif "_L." in baseName :
-                    patients[patient]["L"]["target"]=img_fn
-                elif "_CB." in baseName :
-                    patients[patient]["CB"]["target"]=img_fn
-                elif "_CI." in baseName :
-                    patients[patient]["CI"]["target"]=img_fn
 
     fail = 0
     max = 0
     mean = 0
     nbr_pred = 0
     error_lst = []
-    f = open(os.path.join(fiducial_dir,"Result.txt"),'w')
-    for patient,fiducials in patients.items():
-        print("Results for patient",patient)
-        f.write("Results for patient "+ str(patient)+"\n")
 
-        for group,targ_res in fiducials.items():
-            print(" ",group,"landmarks:")
-            f.write(" "+ str(group)+" landmarks:\n")
-            if "pred" in targ_res.keys():
-                target_lm_dic = ReadJson(targ_res["target"])
-                pred_lm_dic = ReadJson(targ_res["pred"])
-                for lm,t_data in target_lm_dic.items():
-                    if lm in pred_lm_dic.keys():
-                        a = np.array([float(t_data["x"]),float(t_data["y"]),float(t_data["z"])])
-                        p_data = pred_lm_dic[lm]
-                        b = np.array([float(p_data["x"]),float(p_data["y"]),float(p_data["z"])])
-                        # print(a,b)
-                        dist = np.linalg.norm(a-b)
-                        if dist > max: max = dist
-                        if dist < 10:
-                            nbr_pred+=1
-                            mean += dist
-                            error_dic["labels"].append(lm)
-                            error_dic["error"].append(dist)
-                            error_lst.append(dist)
-                        else:
-                            fail +=1
-                        print("  ",lm,"error = ", dist)
-                        f.write("  "+ str(lm)+" error = "+str(dist)+"\n")
-            f.write("\n")
-        f.write("\n")
+    for environment in environments:
+        for landmark,pos in environment.predicted_landmarks.items():
+            if landmark in environment.data[scale]["landmarks"].keys():
+                error = np.linalg.norm(np.array(pos) - np.array(environment.data[scale]["landmarks"][landmark]))
+                error_dic["labels"].append(landmark)
+                error_dic["error"].append(error)
+
+                if error > max: max = error
+                if error > 10: fail +=1
+                mean += error
+                nbr_pred+=1
+                error_lst.append(error)
 
     print(fail,'fail')
     print("STD :", np.std(error_lst))
     print('Error max :',max)
     print('Mean error',mean/nbr_pred)
     
-    f.close
     return error_dic
 
 def ResultDiscretAccuracy(env_lst,sp):

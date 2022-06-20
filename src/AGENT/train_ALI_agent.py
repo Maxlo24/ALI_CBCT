@@ -75,8 +75,8 @@ def main(args):
         if not os.path.exists(dir_path):
             os.makedirs(dir_path)
         agent.SetBrain(Brain(
-            network_type = RNet,
-            network_nbr = len(GV.SCALE_KEYS),
+            network_type = DNet,
+            network_scales = GV.SCALE_KEYS,
             model_dir = dir_path,
             model_name = target,
             device = GV.DEVICE,
@@ -90,6 +90,10 @@ def main(args):
 
     print()
 
+    training_scales = [GV.SCALE_KEYS[scale] for scale in args.training_scales]
+
+    print('Training on scales : ',training_scales)
+
     Master = TrainingMaster(
         environement_lst= environement_lst,
         agent_lst = agent_lst, 
@@ -97,7 +101,7 @@ def main(args):
         max_train_memory_size = dataset_size,
         max_val_memory_size= dataset_size*2,
         val_percentage = args.test_percentage/100,
-        env_scales = GV.SCALE_KEYS,
+        env_scales = training_scales,
         num_worker = args.nbr_worker,
         batch_size = batch_size,
         )
@@ -135,7 +139,9 @@ if __name__ ==  '__main__':
     #Environment
     # input_group.add_argument('-lm','--landmark_group',nargs="+",type=str,help="Prepare the data for uper and/or lower landmark training (ex: U L CB CI)", default=["CI"])
     input_group.add_argument('-sp', '--scale_spacing', nargs="+", type=float, help='Spacing of the different scales', default=[1,0.3])
-    
+    input_group.add_argument('-ts', '--training_scales', nargs="+", type=float, help='Scale to train', default=[0,1])
+
+
     #Agent
     input_group.add_argument('-fov', '--agent_FOV', nargs="+", type=float, help='Wanted crop size', default=[64,64,64])
     input_group.add_argument('-sps', '--speed_per_scale', nargs="+", type=int, help='Speed for each environment scale', default=[1,1])
@@ -143,8 +149,8 @@ if __name__ ==  '__main__':
 
 
     #Training data
-    input_group.add_argument('-bs', '--batch_size', type=int, help='Batch size', default=100)
-    input_group.add_argument('-ds', '--dataset_size', type=int, help='Size of the randomly generated dataset', default=10000)
+    input_group.add_argument('-bs', '--batch_size', type=int, help='Batch size', default=10)
+    input_group.add_argument('-ds', '--dataset_size', type=int, help='Size of the randomly generated dataset', default=100)
     input_group.add_argument('-duf', '--data_update_freq', type=int, help='Data update frequency', default=1)
     input_group.add_argument('-dur', '--data_update_ratio', type=float, help='Ratio of data to update', default=0.5)
     #Training param

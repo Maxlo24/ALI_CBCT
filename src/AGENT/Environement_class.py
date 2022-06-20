@@ -67,9 +67,12 @@ class Environement :
 
         self.predicted_landmarks = {}
 
+
     def LoadImages(self,images_path):
 
-        for scale,path in images_path.items():
+        scales = []
+
+        for scale_id,path in images_path.items():
             data = {"path":path}
             img = sitk.ReadImage(path)
             img_ar = sitk.GetArrayFromImage(img)
@@ -82,8 +85,10 @@ class Environement :
 
             data["landmarks"] = {}
 
-            self.data[scale] = data
+            self.data[scale_id] = data
             self.scale_nbr += 1
+
+            
 
     def LoadJsonLandmarks(self,fiducial_path):
         # print(fiducial_path)
@@ -119,7 +124,7 @@ class Environement :
         # print(ref_origin,ref_spacing,physical_origin)
 
         landmark_dic = {}
-        for landmark,pos in self.data[scale_key]["landmarks"].items():
+        for landmark,pos in self.predicted_landmarks.items():
 
             real_label_pos = (pos-physical_origin)*ref_spacing
             real_label_pos = [real_label_pos[2],real_label_pos[1],real_label_pos[0]]
@@ -181,6 +186,7 @@ class Environement :
             rand_coord_lst = self.GetRandomPosesInAllScan(scale,pos_nbr-centered_pos_nbr)
             rand_coord_lst += self.GetRandomPosesArounfLabel(scale,target,radius,centered_pos_nbr)
         else:
+            # print("RANDOOOOOOM AROUND LABEL")
             rand_coord_lst = self.GetRandomPosesArounfLabel(scale,target,radius,pos_nbr)
 
         return rand_coord_lst
@@ -215,6 +221,26 @@ class Environement :
 
         return sample_lst
 
+    def GetSpacing(self,scale):
+        return self.data[scale]["spacing"]
+
+    def GetSize(self,scale):
+        return self.data[scale]["size"]
+
+    def AddPredictedLandmark(self,lm_id,lm_pos):
+        # print(f"Add landmark {lm_id} at {lm_pos}")
+        self.predicted_landmarks[lm_id] = lm_pos
+
+    def __str__(self):
+        print(self.patient_id)
+        for scale in self.data.keys():
+            print(f"{scale}")
+            print(self.data[scale]["spacing"])
+            print(self.data[scale]["origin"])
+            print(self.data[scale]["size"])
+            print(self.data[scale]["landmarks"])
+        return ""
+
     # def GenerateImages(self,ref_img,spacing_lst):
     #     self.images_path = [ref_img]
 
@@ -243,9 +269,6 @@ class Environement :
     #     self.ResetLandmarks()
 
 
-
-    # def AddPredictedLandmark(self,lm_id,lm_pos):
-    #     self.predicted_landmarks[lm_id] = lm_pos
 
 
 
@@ -414,19 +437,19 @@ class Environement :
     #         lm_lst = GenControlePoint(groupe_data)
     #         WriteJson(lm_lst,file_path)
 
-            # fiducial_name = patient + "_pred_lm_"+group+".fcsv"
-            # # print(fiducial_name)
+    #         fiducial_name = patient + "_pred_lm_"+group+".fcsv"
+    #         # print(fiducial_name)
 
-            # file_name = os.path.join(os.path.dirname(self.images_path[0]),fiducial_name)
-            # f = open(file_name,'w')
+    #         file_name = os.path.join(os.path.dirname(self.images_path[0]),fiducial_name)
+    #         f = open(file_name,'w')
             
-            # f.write("# Markups fiducial file version = 4.11\n")
-            # f.write("# CoordinateSystem = LPS\n")
-            # f.write("# columns = id,x,y,z,ow,ox,oy,oz,vis,sel,lock,label,desc,associatedNodeID\n")
-            # for id,element in enumerate(list):
-            #     f.write(str(id)+","+str(element["coord"][0])+","+str(element["coord"][1])+","+str(element["coord"][2])+",0,0,0,1,1,1,0,"+element["label"]+",,\n")
-            # # # f.write( data + "\n")
-            # f.close
+    #         f.write("# Markups fiducial file version = 4.11\n")
+    #         f.write("# CoordinateSystem = LPS\n")
+    #         f.write("# columns = id,x,y,z,ow,ox,oy,oz,vis,sel,lock,label,desc,associatedNodeID\n")
+    #         for id,element in enumerate(list):
+    #             f.write(str(id)+","+str(element["coord"][0])+","+str(element["coord"][1])+","+str(element["coord"][2])+",0,0,0,1,1,1,0,"+element["label"]+",,\n")
+    #         # # f.write( data + "\n")
+    #         f.close
 
 
     # def SaveCBCT(self,dim,out_path):

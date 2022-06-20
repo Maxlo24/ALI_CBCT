@@ -25,7 +25,7 @@ class Brain:
     def __init__(
         self,
         network_type,
-        network_nbr,
+        network_scales,
         device,
         in_channels,
         out_channels,
@@ -58,7 +58,9 @@ class Brain:
         best_metrics = []
         best_epoch = []
 
-        for n in range(network_nbr):
+        self.network_scales = network_scales
+
+        for n,scale in enumerate(network_scales):
             net = network_type(
                 in_channels = in_channels,
                 out_channels = out_channels,
@@ -78,7 +80,7 @@ class Brain:
             best_epoch.append(0)
 
             if not model_dir == "":
-                dir_path = os.path.join(model_dir,str(n))
+                dir_path = os.path.join(model_dir,scale)
                 if not os.path.exists(dir_path):
                     os.makedirs(dir_path)
                 models_dirs.append(dir_path)
@@ -125,12 +127,8 @@ class Brain:
     def Predict(self,dim,state):
         network = self.networks[dim]
         network.eval()
-        if self.featNet != None:
-            self.featNet.eval()
         with torch.no_grad():
             input = torch.unsqueeze(state,0).type(torch.float32).to(self.device)
-            if self.featNet != None:
-                input = self.featNet(input)
             x = network(input)
         return torch.argmax(x)
 
@@ -140,7 +138,7 @@ class Brain:
         network = self.networks[n]
         self.global_epoch[n] += 1   
         if self.verbose:
-            print("training epoch:",self.global_epoch[n],"for network :", GV.SCALE_KEYS[n])
+            print("training epoch:",self.global_epoch[n],"for network :", self.network_scales[n])
 
         network.train()
 
@@ -201,7 +199,7 @@ class Brain:
         # print(data)
         # for n,network in enumerate(self.networks):
         if self.verbose:
-            print("validating network :",n)
+            print("validating network :", self.network_scales[n])
         
         network = self.networks[n]
         network.eval()
@@ -237,10 +235,12 @@ class Brain:
                 print()
                 print("Porcentage of good moves :",metric*100,"%")
 
+            # metric = 1
+
             if metric > self.best_metrics[n]:
                 self.best_metrics[n] = metric
                 self.best_epoch[n] = self.global_epoch[n]
-                save_path = os.path.join(self.model_dirs[n],self.model_name+"_Net_"+str(n)+".pth")
+                save_path = os.path.join(self.model_dirs[n],self.model_name+"_Net_"+ self.network_scales[n]+".pth")
                 torch.save(
                     network.state_dict(), save_path
                 )
@@ -249,18 +249,22 @@ class Brain:
             else:
                 print(f"Model Was Not Saved ! Current Best Avg. metric: {self.best_metrics[n]} Current Avg. metric: {metric}")
         print("--------------------------------------------------------------------------")
-        if self.generate_tensorboard:
-            writer = self.writers[n]
-            # writer.add_graph(network,input)
-            writer.add_scalar("Validation accuracy",metric,self.global_epoch[n])
-            writer.close()
+        # if self.generate_tensorboard:
+        #     writer = self.writers[n]
+        #     # writer.add_graph(network,input)
+        #     writer.add_scalar("Validation accuracy",metric,self.global_epoch[n])
+        #     writer.close()
 
         return metric
 
     def LoadModels(self,model_lst):
+        # for scale,network in model_lst.items():
+        #     print("Loading model", scale)
+        #     net.load_state_dict(torch.load(model_lst[n],map_location=self.device))
+
         for n,net in enumerate(self.networks):
-            print("Loading model", model_lst[n])
-            net.load_state_dict(torch.load(model_lst[n],map_location=self.device))
+            print("Loading model", model_lst[self.network_scales[n]])
+            net.load_state_dict(torch.load(model_lst[self.network_scales[n]],map_location=self.device))
 
 # #####################################
 #  Networks

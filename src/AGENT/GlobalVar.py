@@ -20,7 +20,17 @@ GROUP_LABELS = {
 # LABELS_TO_TRAIN = ['ROr','LOr','LMZyg','RMZyg','RPF','LPF','RNC','LNC','UR6O','UL6O','UR6R','UL6R','UR4O','UR4O','UL4O','UL4R','UR3O','UL3O','UR3R','UL3R','UR1O','UL1O','UR1R','UL1R','ANS','PNS','A']
 # LABELS_TO_TRAIN = ['RCo', 'LCo', 'RGo', 'LGo', 'Me', 'Gn', 'Pog', 'B', 'RPRa', 'LPRa', 'RARa', 'LARa', 'LR6O', 'LL6O', 'LR6R', 'LL6R', 'LR3O', 'LL3O', 'LR3R', 'LL3R', 'LR1O', 'LL1O', 'LR1R', 'LL1R']
 
-LABELS_TO_TRAIN = ['B','Gn']
+
+
+# new_LABELS = []
+# for label in GROUP_LABELS['L']:
+#     if label not in LABELS_TO_TRAIN:
+#         new_LABELS.append(label)
+
+# LABELS_TO_TRAIN = new_LABELS
+
+
+
 
 LABEL_GROUPES = {}
 LABELS = []

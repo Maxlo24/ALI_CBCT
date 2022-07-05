@@ -149,8 +149,11 @@ if __name__ ==  '__main__':
 
 
     #Training data
-    input_group.add_argument('-bs', '--batch_size', type=int, help='Batch size', default=10)
-    input_group.add_argument('-ds', '--dataset_size', type=int, help='Size of the randomly generated dataset', default=100)
+
+    input_group.add_argument('-bs', '--batch_size', type=int, help='Batch size', default=150)
+    input_group.add_argument('-ds', '--dataset_size', type=int, help='Size of the randomly generated dataset', default=12000)
+    # input_group.add_argument('-bs', '--batch_size', type=int, help='Batch size', default=10)
+    # input_group.add_argument('-ds', '--dataset_size', type=int, help='Size of the randomly generated dataset', default=100)
     input_group.add_argument('-duf', '--data_update_freq', type=int, help='Data update frequency', default=1)
     input_group.add_argument('-dur', '--data_update_ratio', type=float, help='Ratio of data to update', default=0.5)
     #Training param

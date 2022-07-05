@@ -160,12 +160,17 @@ def main(args):
     start_time = time.time()
 
     tot_step = 0
+    fails = {}
     for environment in environement_lst:
         print(environment.patient_id)
         # print(environment)
         for agent in agent_lst:
             agent.SetEnvironement(environment)
-            tot_step += agent.Search()
+            search_result = agent.Search()
+            if search_result == -1:
+                fails[agent.target] = fails.get(agent.target,0) + 1
+            else:
+                tot_step += search_result
             # PlotAgentPath(agent)
         outPath = os.path.dirname(patients[environment.patient_id]["scan"])
         environment.SavePredictedLandmarks(GV.SCALE_KEYS[-1],outPath)
@@ -174,6 +179,9 @@ def main(args):
     end_time = time.time()
     print('prediction time :' , end_time-start_time)
         
+
+    for lm, nbr in fails.items():
+        print(f"Fails for {lm} : {nbr}/{len(environement_lst)}")
 
     if args.clear_temp:
         try:

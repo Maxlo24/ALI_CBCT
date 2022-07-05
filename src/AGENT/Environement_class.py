@@ -113,7 +113,7 @@ class Environement :
         # print(test)
 
 
-    def SavePredictedLandmarks(self,scale_key):
+    def SavePredictedLandmarks(self,scale_key,out_path=None):
         img_path = self.data[scale_key]["path"]
         print(f"Saving predicted landmarks for patient{self.patient_id} at scale {scale_key}")
 
@@ -138,10 +138,13 @@ class Environement :
 
         for group,list in landmark_dic.items():
 
+            id = self.patient_id.split(".")[0]
+            json_name = f"{id}_lm_Pred_{group}.mrk.json"
 
-            json_name = f"{self.patient_id}_lm_Pred_{group}.mrk.json"
-
-            file_path = os.path.join(os.path.dirname(img_path),json_name)
+            if out_path is not None:
+                file_path = os.path.join(out_path,json_name)
+            else:
+                file_path = os.path.join(os.path.dirname(img_path),json_name)
             groupe_data = {}
             for lm in list:
                 groupe_data[lm["label"]] = {"x":lm["coord"][0],"y":lm["coord"][1],"z":lm["coord"][2]}

@@ -249,11 +249,11 @@ class Brain:
             else:
                 print(f"Model Was Not Saved ! Current Best Avg. metric: {self.best_metrics[n]} Current Avg. metric: {metric}")
         print("--------------------------------------------------------------------------")
-        # if self.generate_tensorboard:
-        #     writer = self.writers[n]
-        #     # writer.add_graph(network,input)
-        #     writer.add_scalar("Validation accuracy",metric,self.global_epoch[n])
-        #     writer.close()
+        if self.generate_tensorboard:
+            writer = self.writers[n]
+            # writer.add_graph(network,input)
+            writer.add_scalar("Validation accuracy",metric,self.global_epoch[n])
+            writer.close()
 
         return metric
 

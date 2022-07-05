@@ -137,6 +137,7 @@ def GetEnvironmentLst(environments_param):
             verbose = environments_param["verbose"],
 
         )
+
         env.LoadImages(data["scans"])
         for lm_file in data["landmarks"].values():
             env.LoadJsonLandmarks(lm_file)
@@ -147,6 +148,20 @@ def GetEnvironmentLst(environments_param):
     return environement_lst
 
     
+def GenEnvironmentLst(patient_dic ,env_type, padding = 1, device = GV.DEVICE):
+    environement_lst = []
+    for patient,data in patient_dic.items():
+        print(f"{GV.bcolors.OKCYAN}Generating Environement for the patient: {GV.bcolors.OKBLUE}{patient}{GV.bcolors.ENDC}")
+        env = env_type(
+            patient_id = patient,
+            device = device,
+            padding = padding,
+            verbose = False,
+        )
+        env.LoadImages(data["scans"])
+        environement_lst.append(env)
+    return environement_lst
+
 
 
 def CorrectHisto(filepath,outpath,min_porcent=0.01,max_porcent = 0.95,i_min=-1500, i_max=4000):
@@ -156,14 +171,38 @@ def CorrectHisto(filepath,outpath,min_porcent=0.01,max_porcent = 0.95,i_min=-150
     input_img = sitk.Cast(input_img, sitk.sitkFloat32)
     img = sitk.GetArrayFromImage(input_img)
 
-    img = CorrectContrast(img,min_porcent,max_porcent,i_min,i_max)
+
+    img_min = np.min(img)
+    img_max = np.max(img)
+    img_range = img_max - img_min
+    # print(img_min,img_max,img_range)
+
+    definition = 1000
+    histo = np.histogram(img,definition)
+    cum = np.cumsum(histo[0])
+    cum = cum - np.min(cum)
+    cum = cum / np.max(cum)
+
+    res_high = list(map(lambda i: i> max_porcent, cum)).index(True)
+    res_max = (res_high * img_range)/definition + img_min
+
+    res_low = list(map(lambda i: i> min_porcent, cum)).index(True)
+    res_min = (res_low * img_range)/definition + img_min
+
+    res_min = max(res_min,i_min)
+    res_max = min(res_max,i_max)
+
+
+    # print(res_min,res_min)
+
+    img = np.where(img > res_max, res_max,img)
+    img = np.where(img < res_min, res_min,img)
 
     output = sitk.GetImageFromArray(img)
     output.SetSpacing(input_img.GetSpacing())
     output.SetDirection(input_img.GetDirection())
     output.SetOrigin(input_img.GetOrigin())
     output = sitk.Cast(output, sitk.sitkInt16)
-
 
     writer = sitk.ImageFileWriter()
     writer.SetFileName(outpath)
@@ -178,7 +217,7 @@ def CorrectContrast(img_array,min_porcent=0.01,max_porcent = 0.95,i_min=-1500, i
     # print(img_min,img_max,img_range)
 
     definition = 1000
-    histo = np.histogram(img,definition)
+    histo = np.histogram(img_array,definition)
     cum = np.cumsum(histo[0])
     cum = cum - np.min(cum)
     cum = cum / np.max(cum)

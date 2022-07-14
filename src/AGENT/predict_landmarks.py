@@ -133,7 +133,7 @@ def main(args):
 
 
     # agent_lst = GetAgentLst(agents_param)
-    brain_lst = GetBrain(args.dir_model)
+    brain_lst = GetBrain(args.dir_models)
     # print( brain_lst)
     # environement_lst = [environement_lst[0]]
     # agent_lst = [agent_lst[0]]
@@ -200,9 +200,9 @@ if __name__ ==  '__main__':
     
     input_group = parser.add_argument_group('dir')
     input_group.add_argument('--dir_scans', type=str, help='Input directory with the scans',default='/Users/luciacev-admin/Documents/Projects/MSDRL_benchmark/data/test')
-    input_group.add_argument('--dir_model', type=str, help='Directory of the trained models',default= '/Users/luciacev-admin/Desktop/MSDRL_models/ALI_CNN_models_2021_26_10')
+    input_group.add_argument('--dir_models', type=str, help='Directory of the trained models',default= '/Users/luciacev-admin/Desktop/MSDRL_models/ALI_CNN_models_2021_26_10')
     
-    input_group.add_argument('--clear_temp', type=bool, help='Temp directory',default= False)
+    input_group.add_argument('--clear_temp', type=bool, help='Temp directory',default= True)
     input_group.add_argument('--dir_temp', type=str, help='Temp directory',default= '..')
 
 

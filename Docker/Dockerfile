@@ -23,11 +23,13 @@ WORKDIR /app/data
 
 
 ARG RELEASE_VERSION="1.0.0-beta.1"
+
 WORKDIR /app
 RUN wget https://github.com/Maxlo24/ALI_CBCT/archive/refs/tags/v$RELEASE_VERSION.zip
 RUN unzip v$RELEASE_VERSION.zip
 # RUN unzip AMASSS_CBCT-$RELEASE.zip
 # RUN unzip AMASSS_CBCT-1.0.0-alpha.zip
+
 RUN pip install -r ALI_CBCT-$RELEASE_VERSION/requirements.txt
 
 RUN mv ALI_CBCT-$RELEASE_VERSION/src/AGENT ALI_CBCT

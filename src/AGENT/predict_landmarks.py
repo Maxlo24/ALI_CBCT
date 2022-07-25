@@ -203,7 +203,7 @@ if __name__ ==  '__main__':
     input_group.add_argument('--dir_scans', type=str, help='Input directory with the scans',default='/app/data/scans')
     input_group.add_argument('--dir_models', type=str, help='Directory of the trained models',default= '/app/data/models')
     
-    input_group.add_argument('--clear_temp', type=bool, help='Temp directory',default= False)
+    input_group.add_argument('--clear_temp', type=bool, help='Temp directory',default= True)
     input_group.add_argument('--dir_temp', type=str, help='Temp directory',default= '..')
 
 

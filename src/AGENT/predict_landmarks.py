@@ -126,10 +126,11 @@ def main(args):
         "scale_keys" : GV.SCALE_KEYS,
         "spawn_rad" : args.spawn_radius,
         "speed_per_scale" : args.speed_per_scale,
+        "focus_radius" : args.focus_radius,
         "verbose" : True
     }
 
-    agent_lst = GetAgentLst(agents_param)
+    agent_lst = GetAgentLst(agents_param, args.landmarks)
 
 
     # agent_lst = GetAgentLst(agents_param)
@@ -199,18 +200,19 @@ if __name__ ==  '__main__':
     parser = argparse.ArgumentParser(description='Training for Automatic Landmarks Identification', formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     
     input_group = parser.add_argument_group('dir')
-    input_group.add_argument('--dir_scans', type=str, help='Input directory with the scans',default='/Users/luciacev-admin/Documents/Projects/MSDRL_benchmark/data/test')
-    input_group.add_argument('--dir_models', type=str, help='Directory of the trained models',default= '/Users/luciacev-admin/Desktop/MSDRL_models/ALI_CNN_models_2021_26_10')
+    input_group.add_argument('--dir_scans', type=str, help='Input directory with the scans',default='/app/data/scans')
+    input_group.add_argument('--dir_models', type=str, help='Directory of the trained models',default= '/app/data/models')
     
-    input_group.add_argument('--clear_temp', type=bool, help='Temp directory',default= True)
+    input_group.add_argument('--clear_temp', type=bool, help='Temp directory',default= False)
     input_group.add_argument('--dir_temp', type=str, help='Temp directory',default= '..')
 
 
     #Environment
-    input_group.add_argument('-lm','--landmarks',nargs="+",type=str,help="Prepare the data for uper and/or lower landmark training (ex: U L CB)", default=["U","L","CB"])
+    input_group.add_argument('-lm','--landmarks',nargs="+",type=str,help="Prepare the data for uper and/or lower landmark training (ex: U L CB)", default=['Ba', 'S'])
     input_group.add_argument('-sp', '--spacing', nargs="+", type=float, help='Spacing of the different scales', default=[1,0.3])
     input_group.add_argument('-sps', '--speed_per_scale', nargs="+", type=int, help='Speed for each environment scale', default=[1,1])
     input_group.add_argument('-sr', '--spawn_radius', type=int, help='spawning radius around landmark', default=10)
+    input_group.add_argument('-fr', '--focus_radius', type=int, help='focus radius around landmark', default=4)
 
 
     #Agent

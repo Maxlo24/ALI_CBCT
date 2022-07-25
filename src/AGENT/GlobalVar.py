@@ -10,7 +10,9 @@ GROUP_LABELS = {
 
     'L' : ['RCo', 'RGo', 'Me', 'Gn', 'Pog', 'PogL', 'B', 'LGo', 'LCo', 'LR1O', 'LL6MB', 'LL6DB', 'LR6MB', 'LR6DB', 'LAF', 'LAE', 'RAF', 'RAE', 'LMCo', 'LLCo', 'RMCo', 'RLCo', 'RMeF', 'LMeF', 'RSig', 'RPRa', 'RARa', 'LSig', 'LARa', 'LPRa', 'LR7R', 'LR5R', 'LR4R', 'LR3R', 'LL3R', 'LL4R', 'LL5R', 'LL7R', 'LL7O', 'LL5O', 'LL4O', 'LL3O', 'LL2O', 'LL1O', 'LR2O', 'LR3O', 'LR4O', 'LR5O', 'LR7O', 'LL6R', 'LR6R', 'LL6O', 'LR6O', 'LR1R', 'LL1R', 'LL2R', 'LR2R'],
 
-    'CI' : ['UR3OIP','UL3OIP','UR3RIP','UL3RIP']
+    'CI' : ['UR3OIP','UL3OIP','UR3RIP','UL3RIP'],
+
+    'TMJ' : ['AF', 'AE']
 }
 
 # print(len(GROUP_LABELS['CB']) + len(GROUP_LABELS['U']) + len(GROUP_LABELS['L']) + len(GROUP_LABELS['CI']))
@@ -30,7 +32,7 @@ GROUP_LABELS = {
 # LABELS_TO_TRAIN = new_LABELS
 
 
-LABELS_TO_TRAIN = ['RAF','RAE']
+LABELS_TO_TRAIN = ['AF','AE']
 
 LABEL_GROUPES = {}
 LABELS = []

@@ -62,7 +62,7 @@ def main(args):
         "verbose" : True
     }
 
-    agent_lst = GetAgentLst(agents_param)
+    agent_lst = GetAgentLst(agents_param, GV.LABELS_TO_TRAIN)
 
     # environement_lst, agent_lst = GetTrainingEnvironementsAgents(environments_param,agents_param)
 
@@ -138,7 +138,7 @@ if __name__ ==  '__main__':
 
     #Environment
     # input_group.add_argument('-lm','--landmark_group',nargs="+",type=str,help="Prepare the data for uper and/or lower landmark training (ex: U L CB CI)", default=["CI"])
-    input_group.add_argument('-sp', '--scale_spacing', nargs="+", type=float, help='Spacing of the different scales', default=[1,0.3])
+    input_group.add_argument('-sp', '--scale_spacing', nargs="+", type=float, help='Spacing of the different scales', default=[0.3,0.08])
     input_group.add_argument('-ts', '--training_scales', nargs="+", type=float, help='Scale to train', default=[0,1])
 
 
@@ -146,6 +146,7 @@ if __name__ ==  '__main__':
     input_group.add_argument('-fov', '--agent_FOV', nargs="+", type=float, help='Wanted crop size', default=[64,64,64])
     input_group.add_argument('-sps', '--speed_per_scale', nargs="+", type=int, help='Speed for each environment scale', default=[1,1])
     input_group.add_argument('-sr', '--spawn_radius', type=int, help='spawning radius around landmark', default=30)
+    input_group.add_argument('-fr', '--focus_radius', type=int, help='focus radius around landmark', default=4)
 
 
     #Training data

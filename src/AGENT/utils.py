@@ -15,11 +15,11 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 
 
-def GetAgentLst(agents_param):
+def GetAgentLst(agents_param, lm_lst):
     print("-- Generating agents --")
 
     agent_lst = []
-    for label in GV.LABELS_TO_TRAIN:
+    for label in lm_lst:
         print(f"{GV.bcolors.OKCYAN}Generating Agent for the lamdmark: {GV.bcolors.OKBLUE}{label}{GV.bcolors.ENDC}")
         agt = agents_param["type"](
             targeted_landmark=label,
@@ -28,6 +28,7 @@ def GetAgentLst(agents_param):
             FOV=agents_param["FOV"],
             start_pos_radius = agents_param["spawn_rad"],
             speed_per_scale = agents_param["speed_per_scale"],
+            focus_radius = agents_param["focus_radius"],
             verbose = agents_param["verbose"]
         )
         agent_lst.append(agt)
@@ -386,6 +387,21 @@ def CorrectCSV(filePath, Rcar = [" ", "-1"], Rlab = ["RGo_LGo", "RCo_LCo", "LCo_
             if(keep):
                 writer.writerow(row)
 
+def RenameLandmarkCSV(fiducial_path, rename_lst):
+
+        with open(fiducial_path) as f:
+            data = json.load(f)
+
+        markups = data["markups"][0]["controlPoints"]
+        for markup in markups:
+            for key in rename_lst:
+                if key in markup["label"]:
+                    markup["label"] = key
+
+        data["markups"][0]["controlPoints"] = markups
+
+        with open(fiducial_path, 'w') as f:
+            json.dump(data, f)
 
 def GetImageInfo(filepath):
     ref = sitk.ReadImage(filepath)

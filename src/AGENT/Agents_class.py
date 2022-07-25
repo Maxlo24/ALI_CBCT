@@ -34,9 +34,11 @@ class Agent :
         start_pos_radius = 20,
         shortmem_size = 10,
         speed_per_scale = [2,1],
+        focus_radius = 4,
         verbose = False
     ) -> None:
     
+        self.focus_radius = focus_radius
         self.target = targeted_landmark
         self.scale_keys = scale_keys
         self.environement = environement
@@ -154,12 +156,11 @@ class Agent :
             ],
             dtype=np.int16
         )
-        radius = 4
         final_pos = np.array([0,0,0], dtype=np.float64)
         for pos in explore_pos:
             found = False
             self.position_shortmem[self.scale_state].clear()
-            self.position = start_pos + radius*pos
+            self.position = start_pos + self.focus_radius*pos
             while  not found:
                 action = self.PredictAction()
                 self.Move(action)

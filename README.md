@@ -99,7 +99,7 @@ python3 init_training_data_Canine.py -i "path of the input folder with the scans
 ```
 
 
-By defaul the spacing is set at 1 and 0.3 but we can change and add other spacing with the argument :
+By default the spacing is set at 1 and 0.3 but we can change and add other spacing with the argument :
 ```
 -sp x.xx x.xx
 ````
